@@ -14,6 +14,11 @@ def prepare(run=subprocess.run, exists=lambda name: Path(name).is_file()):
     run(['/usr/bin/systemctl', 'start', 'ssh.service'], check=True, timeout=30)
     run(['/usr/sbin/sshd', '-t'], check=True, timeout=10)
     run(['/usr/bin/systemctl', 'enable', 'ssh.service'], check=True, timeout=30)
+    # Ubuntu may retain a listening socket while its on-demand service is idle.
+    try:
+        run(['/usr/bin/systemctl', 'is-active', '--quiet', 'ssh.service'], check=True, timeout=10)
+    except subprocess.CalledProcessError:
+        run(['/usr/bin/systemctl', 'is-active', '--quiet', 'ssh.socket'], check=True, timeout=10)
 
 
 def main():

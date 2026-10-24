@@ -58,13 +58,27 @@ class HelperTest(unittest.TestCase):
         PREPARE.prepare(run=lambda args, **kwargs: calls.append(args), exists=lambda _: False)
         self.assertEqual(calls, [
             ['/usr/bin/apt-get','-y','-o','Dpkg::Options::=--force-confold','install','openssh-server'],
-            ['/usr/bin/systemctl','start','ssh.service'], ['/usr/sbin/sshd','-t'], ['/usr/bin/systemctl','enable','ssh.service']])
+            ['/usr/bin/systemctl','start','ssh.service'], ['/usr/sbin/sshd','-t'], ['/usr/bin/systemctl','enable','ssh.service'],
+            ['/usr/bin/systemctl','is-active','--quiet','ssh.service']])
         calls = []
         PREPARE.prepare(run=lambda args, **kwargs: calls.append(args), exists=lambda _: True)
-        self.assertEqual(len(calls), 3)
+        self.assertEqual(len(calls), 4)
         with mock.patch.object(sys, 'argv', ['prepare-ssh','unexpected']), mock.patch.object(PREPARE, 'prepare') as action:
             with self.assertRaises(SystemExit): PREPARE.main()
             action.assert_not_called()
+
+    def test_socket_activated_ssh_is_supported_but_both_inactive_fail(self):
+        calls = []
+        def run(args, **kwargs):
+            calls.append(args)
+            if args[1:3] == ['is-active', '--quiet'] and args[-1] == 'ssh.service':
+                raise subprocess.CalledProcessError(3, args)
+        PREPARE.prepare(run=run, exists=lambda _: True)
+        self.assertEqual(calls[-1], ['/usr/bin/systemctl','is-active','--quiet','ssh.socket'])
+        def inactive(args, **kwargs):
+            if args[1] == 'is-active': raise subprocess.CalledProcessError(3, args)
+        with self.assertRaises(subprocess.CalledProcessError):
+            PREPARE.prepare(run=inactive, exists=lambda _: True)
 
     def test_setup_file_is_private_and_cannot_follow_links_or_write_special_files(self):
         with tempfile.TemporaryDirectory() as folder:

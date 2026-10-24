@@ -40,7 +40,9 @@ jobs:
           dpkg-deb --info assets/telynd-setup_0.2.0_all.deb
           sudo dpkg -i assets/telynd-setup_0.2.0_all.deb
           sudo /usr/lib/telynd-setup/prepare-ssh
-          systemctl is-active ssh.service
+          systemctl is-active ssh.service || systemctl is-active ssh.socket
+          ssh-keyscan -T 5 -t ed25519 127.0.0.1 > /tmp/telynd-ci-host-key
+          test -s /tmp/telynd-ci-host-key
           xvfb-run -a python3 -m unittest discover -s tests -p test_linux_helper.py -v
       - name: Exercise recovery decisions and locking
         run: python3 -m unittest discover -s tests -v
