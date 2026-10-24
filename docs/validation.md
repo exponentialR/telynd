@@ -1,5 +1,25 @@
 # Onboarding validation record
 
+## Visible recovery progress, 24 October 2026
+
+Linux recovery now shows all three stages and highlights the current step.
+Saved computer details are collapsed; **Approve this Mac…** is the primary
+access action. Key and fingerprint explanations are available under **What
+happens in Terminal?**. **Enable automatic recovery…** remains visible outside
+the scrolling content and explains what unlocks it. Access approval and monitor
+installation remain separate explicit actions with the existing guards.
+Only fresh access evidence, a complete key pair and a verified enabled recovery
+report can show **Enabled**; pending Terminal actions and checks cannot.
+
+All 73 Swift tests passed. Native checks with synthetic settings verified the
+saved-computer step 2, the new-computer step 1 and the disabled final control
+in both. Clearing and re-entering an address kept the manual fields available
+and updated the current step. No SSH approval or host installation ran.
+The screenshot below contains only synthetic computer data. These checks
+establish layout and local gating, not a first-time-user recovery pilot.
+
+![Visible recovery stages and next action](images/recovery-progress.png)
+
 ## First-time setup instructions and direct Linux download, 24 October 2026
 
 The initial route is a working Google remote session, with no existing SSH

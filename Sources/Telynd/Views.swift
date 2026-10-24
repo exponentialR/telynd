@@ -304,7 +304,7 @@ struct DesktopEditor: View {
                         .keyboardShortcut(.defaultAction).disabled(!canSave)
                 } else {
                     Button(isNew ? "Save connection only" : "Save") { save(openRecovery: false) }.disabled(!canSave)
-                    Button(desktop.hostPlatform == .linux ? "Save & set up SSH…" : "Save & set up recovery…") { save(openRecovery: true) }
+                    Button("Save & set up recovery…") { save(openRecovery: true) }
                         .buttonStyle(ConnectButton()).keyboardShortcut(.defaultAction)
                         .disabled(!canSave || desktop.hostPlatform == .unknown)
                 }
@@ -503,7 +503,7 @@ struct OnboardingGuide: View {
                     } else { Text("No computer is saved for this guide. Go back to add one.") }
                 case .recovery:
                     RecoveryIntroduction(platform: $draft.hostPlatform)
-                    Button(draft.hostPlatform == .linux ? "Save & set up SSH…" : "Save & set up recovery…") {
+                    Button("Save & set up recovery…") {
                         if saveDraft() { finish(recovery: true) }
                     }.buttonStyle(ConnectButton()).disabled(chosen == nil || draft.hostPlatform == .unknown)
                 case .finished:
@@ -554,6 +554,65 @@ struct RecoverySheet: View {
     var canInstall: Bool {
         valid && accessReady && observed.report?.supported == true && observed.report?.values["service_loaded"] == "loaded" && observed.report?.values["missing_tools"] == "" && !observed.busy && waitingAction == nil
     }
+    var recoveryOn: Bool { accessReady && observed.report?.recoveryEnabled == true && waitingAction == nil && !observed.busy }
+    var setupStep: Int { address.target == nil ? 1 : (accessReady || waitingAction == "install" ? 3 : 2) }
+    var accessMessage: String? {
+        guard detailsSaved, let result = observed.ssh, result != .ready else { return nil }
+        switch result {
+        case .authenticationRequired: return "This Mac still needs permission. Choose Approve this Mac and enter the Linux account password in Terminal."
+        case .identityNeedsVerification: return "Terminal will ask you to confirm the PC’s identity. Compare it with the helper’s setup details before accepting."
+        case .failed: return "Access could not be verified. Check again or open the diagnostics below."
+        default: return result.guidance
+        }
+    }
+    func progressItem(_ number: Int, _ title: String, _ status: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("\(number). \(title)").font(.caption.weight(.semibold))
+            Text(status).font(.caption).foregroundStyle(.secondary)
+        }.frame(maxWidth: .infinity, alignment: .leading).padding(10)
+            .background(setupStep == number && !recoveryOn ? Color.accentColor.opacity(0.09) : Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 8))
+            .accessibilityElement(children: .combine)
+    }
+    var recoveryProgress: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(recoveryOn ? "Automatic recovery is enabled" : (waitingAction != nil ? "Step \(setupStep) of 3: Finish the approval in Terminal" : (observed.busy ? "Checking this computer…" : "Step \(setupStep) of 3: " + (setupStep == 1 ? "Find the Linux PC" : (setupStep == 2 ? "Approve or check this Mac’s access" : "Turn on automatic recovery")))))
+                .font(.headline)
+            HStack(spacing: 8) {
+                progressItem(1, "Computer details", address.target == nil ? "Current step" : "Details added")
+                progressItem(2, "Approve access", accessReady ? "Verified" : (setupStep == 2 ? "Current step" : "After step 1"))
+                progressItem(3, "Automatic recovery", recoveryOn ? "Enabled" : (setupStep == 3 ? "Current step" : "Not verified yet"))
+            }
+        }
+    }
+    var linuxRecoveryControl: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("3. Automatic recovery").font(.headline)
+                Spacer()
+                if recoveryOn {
+                    Label("Enabled", systemImage: "checkmark.circle.fill").foregroundStyle(.green).font(.callout.weight(.medium))
+                } else {
+                    Button("Enable automatic recovery…") { launch("install") }
+                        .buttonStyle(ConnectButton()).disabled(!canInstall)
+                }
+            }
+            if recoveryOn {
+                Text("The monitor runs on the Linux PC, even when this Mac is closed.").font(.callout).foregroundStyle(.secondary)
+            } else if waitingAction == "install" {
+                Text("Complete the Linux administrator approval in Terminal. Telynd will check the installation when it finishes.").font(.callout).foregroundStyle(.secondary)
+            } else if waitingAction == "disable" || waitingAction == "uninstall" {
+                Text("Complete the requested change in Terminal. Telynd will check the recovery state when it finishes.").font(.callout).foregroundStyle(.secondary)
+            } else if observed.busy {
+                Text("Checking current access and recovery status. Wait for the result before continuing.").font(.callout).foregroundStyle(.secondary)
+            } else if !accessReady {
+                Text("Unlocks after access is verified in step 2. Installing the Linux helper alone does not turn recovery on.").font(.callout).foregroundStyle(.secondary)
+            } else if !canInstall {
+                Text(observed.report?.configurationLabel(at: now) ?? "Check access for current installation requirements.").font(.callout).foregroundStyle(.secondary)
+            } else {
+                Text("Choose Enable automatic recovery and approve installation on Linux in Terminal.").font(.callout).foregroundStyle(.secondary)
+            }
+        }.padding(12).background(.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 10))
+    }
     var discoveryCommands: String { SSHDiscovery.command }
     func saveDetails() -> Bool {
         var value = current; value.hostPlatform = platform
@@ -575,11 +634,12 @@ struct RecoverySheet: View {
         if detailsSaved && valid { store.check(current) }
     }
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 12) {
             Text("Recovery for \(desktop.name)").font(.title2.bold())
             Picker("Remote operating system", selection: $platform) {
                 ForEach(HostPlatform.allCases) { item in Text(item.label).tag(item) }
             }.disabled(waitingAction != nil)
+            if platform.usesSSHRecovery { recoveryProgress }
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     if platform == .unknown {
@@ -600,6 +660,7 @@ struct RecoverySheet: View {
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading)
             }
+            if platform.usesSSHRecovery { linuxRecoveryControl }
             Divider()
             HStack {
                 Text("Recovery is optional. Connect works independently.").font(.caption).foregroundStyle(.secondary)
@@ -660,72 +721,56 @@ struct RecoverySheet: View {
             }
     }
     var linuxSetup: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text("Telynd uses SSH as a second way to reach Linux when the screen connection fails. Setup creates or reuses a key; passwords are entered directly in Terminal.").font(.callout).foregroundStyle(.secondary)
-            VStack(alignment: .leading, spacing: 14) {
-                Text("1. Pair this computer").font(.headline)
-                if address.target == nil && !manualConnection {
-                    PairingSetupView(desktop: current) { card, selected in
-                        store.resetRecoveryCheck(current.id)
-                        address = SSHAddress(target: card.username + "@" + selected)
-                        pairedName = card.hostname; pairingKeys = card.hostKeys
-                    }
-                } else if address.target != nil && !manualConnection {
-                    Label(pairedName ?? current.name, systemImage: "desktopcomputer").font(.callout.weight(.medium))
-                    Text(pairedName == nil ? "Saved connection details are ready to check. Continue with access approval below." : "A reachable route matched the setup card. Continue with access approval below.").font(.callout).foregroundStyle(.secondary)
-                    if !pairingKeys.isEmpty {
-                        DisclosureGroup("Identity for the first SSH connection") {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("Compare the matching key type if Terminal asks you to trust this PC.")
-                                ForEach(pairingKeys, id: \.type) { key in Text(key.type + " · " + key.fingerprint).textSelection(.enabled) }
-                            }.font(.caption).foregroundStyle(.secondary).padding(.top, 8)
-                        }
-                    }
-                    Button("Pair a different computer") { address = SSHAddress(); pairedName = nil; pairingKeys = [] }
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Once enabled, a monitor on the Linux PC checks Google’s remote desktop service every two minutes. It starts an enabled service if it has stopped, even while this Mac is closed.").font(.callout).foregroundStyle(.secondary)
+            if address.target == nil && !manualConnection {
+                PairingSetupView(desktop: current) { card, selected in
+                    store.resetRecoveryCheck(current.id)
+                    address = SSHAddress(target: card.username + "@" + selected)
+                    pairedName = card.hostname; pairingKeys = card.hostKeys
                 }
-                DisclosureGroup("Advanced: enter connection details", isExpanded: $manualConnection) {
-                    manualAddressFields.padding(.top, 12)
-                }.font(.callout)
             }
             if address.target != nil {
+                DisclosureGroup("Computer details · " + (pairedName ?? current.name)) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("These details identify the recovery connection. Access is verified separately in step 2.").font(.callout).foregroundStyle(.secondary)
+                        if !pairingKeys.isEmpty {
+                            Text("Compare the matching identity if Terminal asks you to trust this PC.").font(.caption).foregroundStyle(.secondary)
+                            ForEach(pairingKeys, id: \.type) { key in Text(key.type + " · " + key.fingerprint).font(.caption).textSelection(.enabled) }
+                        }
+                        Button("Set up the recovery connection again") { address = SSHAddress(); pairedName = nil; pairingKeys = []; manualConnection = false }
+                    }.padding(.top, 10)
+                }.font(.callout)
+            }
+            DisclosureGroup("Advanced: enter connection details", isExpanded: $manualConnection) { manualAddressFields.padding(.top, 10) }.font(.callout)
             Divider()
             VStack(alignment: .leading, spacing: 10) {
-                Text("2. Allow this Mac to connect").font(.headline)
-                if accessReady {
-                    Label("SSH access verified", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                Text("2. Approve access from this Mac").font(.headline)
+                if address.target == nil {
+                    Text("Add this PC’s connection details in step 1. Then approve access here.").font(.callout).foregroundStyle(.secondary)
+                } else if waitingAction != nil {
+                    ProgressView("Continue in Terminal. Telynd checks access when approval finishes.").controlSize(.small)
+                } else if observed.busy {
+                    ProgressView("Checking this Mac’s access…").controlSize(.small)
+                } else if accessReady {
+                    Label("Access verified", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                    Text(recoveryOn ? "This Mac can manage recovery. The monitor’s status is shown below." : "This Mac can manage recovery. Turn on automatic recovery below.").font(.callout).foregroundStyle(.secondary)
                 } else if detailsSaved && keyPairPresent && observed.ssh == .ready {
-                    Text("Access was verified previously. Refresh the check before changing recovery.").font(.callout).foregroundStyle(.secondary)
-                    Button("Refresh access check") { store.check(current) }.buttonStyle(ConnectButton()).disabled(observed.busy || waitingAction != nil)
+                    Text("The previous check has expired. Check access again to continue.").font(.callout).foregroundStyle(.secondary)
+                    Button("Check access again") { store.check(current) }.buttonStyle(ConnectButton())
                 } else {
-                    Text("Choose Set up SSH access. Telynd creates a key if needed, adds its public key to your Linux account and checks access when you return. Existing key files are never overwritten.").font(.callout).foregroundStyle(.secondary)
-                    if detailsSaved && observed.ssh == .ready && !keyPairPresent { Text("SSH account access works, but Telynd still needs a complete key pair for setup. Choose Set up SSH access or select an existing pair in Advanced settings.").font(.caption).foregroundStyle(.secondary) }
+                    Text("Give this Mac permission to manage recovery on the Linux PC. This one-time approval opens Terminal; enter the Linux account password when asked.").font(.callout).foregroundStyle(.secondary)
                     HStack {
-                        Button("Set up SSH access…") { launch("setup-access") }.buttonStyle(ConnectButton())
+                        Button("Approve this Mac…") { launch("setup-access") }.buttonStyle(ConnectButton())
                             .disabled(!valid || observed.busy || waitingAction != nil || (detailsSaved && observed.ssh == .identityChanged))
-                        Button("Check existing access") { if saveDetails() { store.check(current) } }.disabled(!valid || observed.busy || waitingAction != nil)
+                        Button("Check access") { if saveDetails() { store.check(current) } }.disabled(!valid || observed.busy || waitingAction != nil)
                     }
-                    if detailsSaved, let ssh = observed.ssh, ssh != .ready { Text(ssh.guidance).font(.callout).foregroundStyle(.secondary) }
+                    if let accessMessage { Text(accessMessage).font(.callout).foregroundStyle(.secondary) }
+                    if detailsSaved && observed.ssh == .ready && !keyPairPresent { Text("Access works with your current SSH configuration. Telynd needs a complete key pair for setup; approve this Mac or choose an existing pair in Advanced.").font(.caption).foregroundStyle(.secondary) }
+                    DisclosureGroup("What happens in Terminal?") {
+                        Text("Telynd creates a key if needed and adds its public key to your Linux account. Existing files are never overwritten. Terminal may ask you to choose a key passphrase and confirm the PC’s identity; its fingerprints are in Computer details after pairing. Login passwords and passphrases stay in system prompts. This approval does not install the recovery monitor.").font(.caption).foregroundStyle(.secondary).padding(.top, 8)
+                    }.font(.callout)
                 }
-                if !accessReady { Text("First-time setup may ask you to choose a key passphrase, verify the host fingerprint and enter your Linux login password. Telynd does not save passwords.").font(.caption).foregroundStyle(.secondary) }
-                if observed.busy { ProgressView("Checking current access…").controlSize(.small) }
-                if waitingAction != nil { Text("Continue in Terminal. Telynd checks the result automatically when setup finishes.").font(.callout).foregroundStyle(.secondary) }
-            }
-            if accessReady {
-            Divider()
-            VStack(alignment: .leading, spacing: 10) {
-                Text("3. Enable automatic recovery").font(.headline)
-                if !accessReady {
-                    Text("Finish the access check in step 2 to unlock automatic recovery.").font(.callout).foregroundStyle(.secondary)
-                } else if observed.report?.recoveryEnabled == true {
-                    Label("Recovery enabled", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
-                    Text("The host timer checks every two minutes and starts an enabled Chrome service if it has stopped or failed.").font(.callout).foregroundStyle(.secondary)
-                } else {
-                    Text("Once access is verified, enable recovery and approve its one-time administrator setup in Terminal. Later checks use the key and restricted helpers.").font(.callout).foregroundStyle(.secondary)
-                    Button("Enable automatic recovery…") { launch("install") }.buttonStyle(ConnectButton()).disabled(!canInstall)
-                    if accessReady && !canInstall { Text(observed.report?.configurationLabel(at: now) ?? "Check access for current installation requirements.").font(.caption).foregroundStyle(.secondary) }
-                }
-            }
-            }
             }
             DisclosureGroup("Advanced settings & diagnostics") {
                 VStack(alignment: .leading, spacing: 14) {

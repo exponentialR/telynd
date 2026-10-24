@@ -109,7 +109,7 @@ keys or uninstall host recovery. Those changes have their own explicit actions.
 
 Adding a computer has two visible steps: **Connection → Recovery (optional)**.
 The recovery step explains the selected operating system's route. For Linux,
-**Save & set up SSH…** opens the guided setup immediately after saving. **Save
+**Save & set up recovery…** opens the guided setup immediately after saving. **Save
 connection only** skips recovery. Editing retains saved SSH details, and saving
 without opening recovery never disables an existing host timer.
 

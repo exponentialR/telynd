@@ -279,7 +279,7 @@ import CryptoKit
             "uninstall": "Remove only the verified Telynd recovery components for this account. Chrome registration, unrelated files and SSH authorisations are preserved. Modified or unrecognised components will require review.",
             "generate-key": "Create a new key at \(identity). Existing files will not be overwritten. Choose a passphrase in the standard SSH prompt; Telynd does not choose or save it."
         ]
-        let title = action == "setup-access" ? "Set up SSH access for \(desktop.name)?" : (action == "generate-key" ? "Create an SSH key?" : "\(action.capitalized) access for \(desktop.name)?")
+        let title = action == "setup-access" ? "Approve this Mac for \(desktop.name)?" : (action == "generate-key" ? "Create an SSH key?" : "\(action.capitalized) access for \(desktop.name)?")
         if let message = messages[action], !confirm(title, message) { return false }
         do {
             let folder = configuration.directory.appendingPathComponent("Launchers")

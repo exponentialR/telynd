@@ -29,7 +29,7 @@ before normal download-and-open distribution.
    the tab; several Google web accounts within one Chrome profile still share
    browsing state. Google handles any sign-in and PIN prompts.
 4. The **Recovery (optional)** step is visible during Add computer. Choose the
-   remote operating system. For Linux, **Save & set up SSH…** saves the computer
+   remote operating system. For Linux, **Save & set up recovery…** saves the computer
    and opens guided pairing with a small setup helper for the Linux PC.
    The helper supplies its login, candidate addresses and public identity;
    Telynd finds a matching route without asking you to choose an IP address. Mac and Windows
@@ -65,7 +65,7 @@ local administrator approval. You bring its setup card
 back to this Mac, confirm the PC and choose **Check this computer**. Telynd tests
 only the card's listed addresses and compares public host keys; it does not
 log in or accept trust. **Use this computer** fills the connection details.
-Then **Set up SSH access…** handles key creation and authorisation through
+Then **Approve this Mac…** handles key creation and authorisation through
 Terminal. You approve first trust and any login/passphrase prompts; automatic
 recovery has a separate administrator approval. **Advanced: enter connection
 details** remains available for existing SSH users. Both devices still need a

@@ -65,8 +65,8 @@ public enum SSHResult: Equatable {
         switch self {
         case .timedOut: return "SSH verification timed out. Check the network route and try again."
         case .ready: return "SSH access verified. Google session availability is not checked."
-        case .authenticationRequired: return "SSH authorisation is needed. Choose Set up SSH access; enter the Linux login password in Terminal."
-        case .identityNeedsVerification: return "Choose Set up SSH access and compare the host fingerprint against a trusted record in Terminal before accepting it."
+        case .authenticationRequired: return "SSH authorisation is needed. Choose Approve this Mac; enter the Linux login password in Terminal."
+        case .identityNeedsVerification: return "Choose Approve this Mac and compare the host fingerprint against a trusted record in Terminal before accepting it."
         case .identityChanged: return "The host identity has changed. Stop and confirm its fingerprint through a trusted route; Telynd will not bypass this check."
         case .unreachable: return "SSH could not reach this computer. Check that it is awake and that your configured network route is available."
         case .failed: return "SSH verification did not finish successfully. Retry or use SSH Terminal for details."

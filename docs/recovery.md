@@ -12,17 +12,19 @@ not yet supported.
 
 Open a computer's **… → Recovery settings…** and select **Linux**. Telynd
 checks previously saved access automatically when this screen opens. New setup
-has three steps:
+has three steps. The header shows the current step and all three stages.
+**Enable automatic recovery…** stays visible at the bottom, with the reason
+it is locked until current access and installation requirements pass:
 
-1. Follow [guided pairing](pairing.md): export the desktop helper, open it on
-   the Ubuntu/Debian PC, approve SSH preparation if needed and bring its setup
+1. Follow [guided pairing](pairing.md): download and install the desktop helper inside
+   the Ubuntu/Debian remote desktop, approve SSH preparation if needed and bring its setup
    card back to this Mac. Confirm the PC, choose **Check this computer**, then
    **Use this computer**. Telynd selects a listed address whose public host key
    matches the card; it does not authenticate or accept trust. Existing saved
    connections skip pairing. Advanced users can expand **Advanced: enter
    connection details** to enter a username/address or paste one simple
    `ssh user@computer` command. SSH options and custom ports are not accepted.
-2. Choose **Set up SSH access…**. Telynd creates a key pair if both files are
+2. Choose **Approve this Mac…**. Telynd creates a key pair if both files are
    absent, or reuses the selected pair. New connections normally use
    `~/.ssh/telynd_ed25519`; existing SSH settings retain their previous key.
    Existing or incomplete key files are never overwritten. Choose a passphrase,
@@ -34,7 +36,7 @@ has three steps:
    **Enable automatic recovery…** offers the separate administrator-approved
    installation. Already-enabled recovery is shown without repeating setup.
 
-**Check existing access** skips authorisation and performs a bounded read-only
+**Check access** skips authorisation and performs a bounded read-only
 check. Key selection, an interactive SSH Terminal, detailed status, manual
 recovery, disabling and uninstalling are under **Advanced settings & diagnostics**.
 Editing the target or key makes the old verification inapplicable until checked.
@@ -67,7 +69,7 @@ Telynd leaves host checks enabled; do not blindly remove the old trust record.
 Authorisation adds only the selected public key to the specified Linux account
 and then verifies non-interactive account access. Recovery is installed separately.
 
-During the confirmed **Set up SSH access** action, before agent or host
+During the confirmed **Approve this Mac** action, before agent or host
 changes, OpenSSH validates a single public-key snapshot. It derives the public
 identity from the selected private key and compares it with that snapshot. A mismatch or
 unreadable private key stops setup. Protected keys may prompt for their

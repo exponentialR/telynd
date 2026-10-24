@@ -7,7 +7,7 @@ supplies the connection details, and the Mac checks for a matching route.
 ## What the user does
 
 1. **On this Mac:** add the computer through Google's picker and choose
-   **Linux → Save & set up SSH…**, or open **Recovery settings…** later. Choose
+   **Linux → Save & set up recovery…**, or open **Recovery settings…** later. Choose
    **Copy Linux download link**, then **Open remote desktop**. SSH is not
    required for these steps: Google's working connection is the initial route.
 2. **Inside the Linux remote desktop:** open a web browser on that PC, paste the
@@ -34,7 +34,7 @@ supplies the connection details, and the Mac checks for a matching route.
    preferring an existing Tailscale address when reported, and looks for a
    matching public SSH host key. **Use this computer** fills the details after
    a match. Nothing has logged in or accepted host trust at this point.
-6. Choose **Set up SSH access…**. Terminal handles one-time host trust,
+6. Choose **Approve this Mac…**. Terminal handles one-time host trust,
    passphrase and Linux login prompts. The card's public fingerprints are
    available to compare against the first trust prompt. An administrator must
    provide initial key access if password login is disabled. After access and
