@@ -1,5 +1,46 @@
 # Onboarding validation record
 
+## Compact dashboard and Chrome-tab capture, 24 October 2026
+
+Source `61935f19e167e010008f7208c216dee209e0431b` was built locally in release
+configuration on macOS 26.4.1 / ARM64 and its ad-hoc signature verified. The
+dashboard now keeps diagnostics/history under **Details & recovery**. Individual
+Google session links enable **Connect**; legacy device-picker entries retain
+their saved settings and offer **Set connection link**. New entries require an
+individual connection link before saving.
+
+An isolated debug fixture exercised compact cards, expansion of diagnostics,
+legacy-link editing, refusal of an unsafe domain, acceptance of a valid direct
+link and the setup guide's save/launch progression. No fixture contacted a
+host. On the actual development app, the existing computer's individual link
+was saved, prior launch/connection-confirmation timestamps were cleared and
+SSH target/key settings were preserved. **Connect** opened the intended Google
+session page directly; Google's UI separately reported **Connected**.
+
+The **Use open computer** action was then tested with a temporary unsaved draft.
+The user clicked the action and approved macOS Automation access to Chrome.
+The app captured the intended open computer's address and enabled Save without
+copying or typing a link. Reading Google's device-picker page instead produced
+the expected refusal and preserved the prior draft link. The temporary draft
+was cancelled, leaving no extra saved computer. A subsequent live readiness
+check reported Google active and recovery enabled with its timer active.
+
+The browser reader sends a fixed Apple event for the front active tab's URL
+only when requested. It does not enumerate tabs, read page content or retrieve
+a Google inventory. The captured address is untrusted input and must pass the
+same exact-host HTTPS session-link validation before filling a draft; saving
+remains explicit. macOS grants app Automation access, which is broader than
+the reader's specific URL request. The usage explanation and trusted signing
+entitlement are recorded in the source and release guide.
+
+Verification: 33 Swift tests, nine adversarial release-validation tests, local
+release build/signature checks and the native UI observations above. Real
+permission denial, Chrome not running, other macOS versions and Developer ID
+distribution were not exercised in this live capture pilot. Validation and
+error guidance cover these cases in code; they remain separate from observed
+success on this configuration. No host identifiers, account labels, connection
+URLs or remote screen content are included here.
+
 ## First registered Linux-host recovery, 24 October 2026
 
 This pilot recovered an already-failed Google Chrome Remote Desktop service on
