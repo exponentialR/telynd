@@ -8,6 +8,16 @@ permissions:
   contents: read
 
 jobs:
+  windows-recovery:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Verify native service policy on a disposable fixture
+        shell: powershell
+        env:
+          TELYND_DISPOSABLE_WINDOWS: '1'
+        run: ./tests/windows-policy.ps1
+
   recovery:
     runs-on: ubuntu-latest
     steps:
@@ -37,6 +47,8 @@ jobs:
         run: |
           python3 -m unittest discover -s tests -p test_authorisation.py -v
           python3 -m unittest discover -s tests -p test_ssh_policy.py -v
+      - name: Exercise isolated macOS recovery lifecycle
+        run: python3 -m unittest discover -s tests -p test_macos_recovery.py -v
       - name: Build and verify app bundle
         run: bash build.sh
       - name: Validate signing transport without credentials

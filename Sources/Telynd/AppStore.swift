@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import TelyndCore
+import CryptoKit
 
 @MainActor final class AppStore: ObservableObject {
     @Published var desktops: [Desktop] = []
@@ -53,7 +54,7 @@ import TelyndCore
         if let i = updated.firstIndex(where: { $0.id == desktop.id }) { updated[i] = desktop } else { updated.append(desktop) }
         do {
             try configuration.saveDesktops(updated)
-            if let old = desktops.first(where: { $0.id == desktop.id }), old.target != desktop.target || old.identityPath != desktop.identityPath { hostChecks.invalidate(desktop.id); operationNotes[desktop.id] = nil }
+            if let old = desktops.first(where: { $0.id == desktop.id }), old.target != desktop.target || old.identityPath != desktop.identityPath || old.hostPlatform != desktop.hostPlatform { hostChecks.invalidate(desktop.id); operationNotes[desktop.id] = nil }
             desktops = updated; return true
         }
         catch { self.error = error.localizedDescription; return false }
@@ -114,6 +115,7 @@ import TelyndCore
         NSWorkspace.shared.openApplication(at: chrome, configuration: NSWorkspace.OpenConfiguration())
     }
     func check(_ desktop: Desktop, recover: Bool = false) {
+        guard desktop.hostPlatform.usesSSHRecovery else { recoveryDesktop = desktop; return }
         guard !fixtureMode else { error = "Preview data cannot contact SSH hosts."; return }
         guard let target = desktop.target, InputValidation.target(target) else { recoveryDesktop = desktop; return }
         guard observations[desktop.id]?.busy != true else { return }
@@ -125,7 +127,7 @@ import TelyndCore
         DispatchQueue.global(qos: .userInitiated).async {
             let result = Self.execute("/usr/bin/ssh", args: SSHPolicy.readinessArguments(identity: identity, target: target, command: "bash -s -- \(recover ? "recover" : "check")"), input: script)
             DispatchQueue.main.async {
-                guard let current = self.desktops.first(where: { $0.id == desktop.id }), current.target == target, (current.identityPath ?? self.defaultIdentity) == identity else {
+                guard let current = self.desktops.first(where: { $0.id == desktop.id }), current.hostPlatform == desktop.hostPlatform, current.target == target, (current.identityPath ?? self.defaultIdentity) == identity else {
                     self.hostChecks.complete(desktop.id, request: request, observation: nil)
                     return
                 }
@@ -148,6 +150,7 @@ import TelyndCore
     }
     func terminal(_ desktop: Desktop, action: String) {
         guard !fixtureMode else { error = "Preview data cannot authorise SSH or change hosts."; return }
+        guard desktop.hostPlatform.usesSSHRecovery else { error = "Use the host-local recovery kit for this operating system."; return }
         let identity = desktop.identityPath ?? defaultIdentity
         guard InputValidation.identityPath(identity), action == "generate-key" || InputValidation.target(desktop.target) else { error = "Save a valid SSH address and key path first."; return }
         let messages = [
@@ -174,10 +177,55 @@ import TelyndCore
             if !NSWorkspace.shared.open(file) { error = "Terminal could not be opened. No completion was verified; try the action again." }
         } catch { self.error = error.localizedDescription }
     }
+    func exportRecoveryKit(_ desktop: Desktop) {
+        guard !fixtureMode else { error = "Recovery kits cannot be exported from synthetic preview data."; return }
+        let files = RecoveryKit.files(for: desktop.hostPlatform)
+        guard !files.isEmpty else { return }
+        let panel = NSSavePanel(); panel.title = "Save recovery kit for the remote computer"
+        panel.nameFieldStringValue = "Telynd-\(desktop.hostPlatform.rawValue)-\(desktop.id.uuidString)"
+        guard panel.runModal() == .OK, let destination = panel.url else { return }
+        do {
+            guard !FileManager.default.fileExists(atPath: destination.path) else { error = "Choose a new folder. Existing files will not be replaced."; return }
+            try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+            var checksums: [String] = []
+            for name in files {
+                let data = try Data(contentsOf: resources.appendingPathComponent(name))
+                let output = destination.appendingPathComponent(name)
+                try data.write(to: output, options: .withoutOverwriting)
+                try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: output.path)
+                checksums.append(SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() + "  " + name)
+            }
+            try RecoveryKit.instructions(for: desktop).write(to: destination.appendingPathComponent("README.txt"), atomically: true, encoding: .utf8)
+            try checksums.joined(separator: "\n").appending("\n").write(to: destination.appendingPathComponent("SHA256SUMS"), atomically: true, encoding: .utf8)
+            operationNotes[desktop.id] = "Recovery kit saved. Follow its README on the remote computer, then import a fresh report. No host changes have been made by exporting."
+            NSWorkspace.shared.activateFileViewerSelecting([destination])
+        } catch { self.error = "Kit export did not complete: \(error.localizedDescription). Review the destination before retrying." }
+    }
+    func importHostReport(_ desktop: Desktop) {
+        let panel = NSOpenPanel(); panel.canChooseDirectories = false; panel.allowsMultipleSelection = false
+        panel.title = "Import a report exported by this computer’s recovery kit"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let handle = try FileHandle(forReadingFrom: url); defer { try? handle.close() }
+            var data = try handle.read(upToCount: 32769) ?? Data()
+            guard data.count <= 32768 else { throw HostReportError.invalid }
+            // Windows PowerShell 5.1 redirects Unicode text as UTF-16LE.
+            if data.starts(with: [0xff, 0xfe]) || data.starts(with: [0xfe, 0xff]) {
+                guard let text = String(data: data, encoding: .utf16), let utf8 = text.data(using: .utf8) else { throw HostReportError.invalid }
+                data = utf8
+            } else if data.starts(with: [0xef, 0xbb, 0xbf]) { data.removeFirst(3) }
+            let report = try LocalHostReport.parse(data, desktop: desktop).readiness
+            hostChecks.invalidate(desktop.id)
+            if let request = hostChecks.begin(desktop.id, recovering: false) {
+                hostChecks.complete(desktop.id, request: request, observation: HostObservation(checkedAt: report.checkedAt, report: report, note: "Imported host snapshot supplied by you. Host identity and current state have not been verified over a live connection. Privacy permissions and Google session availability remain unknown."))
+            }
+        } catch { self.error = error.localizedDescription }
+    }
     func refreshOperationNotes() {
         let folder = configuration.directory.appendingPathComponent("Launchers")
         guard let files = try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey]) else { return }
         for item in desktops {
+            guard item.hostPlatform.usesSSHRecovery else { continue }
             let receipts = files.filter { $0.lastPathComponent.hasPrefix(item.id.uuidString) && $0.pathExtension == "receipt" }.sorted {
                 ((try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast) > ((try? $1.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast)
             }

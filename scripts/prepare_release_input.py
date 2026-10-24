@@ -11,7 +11,7 @@ import subprocess
 import zipfile
 
 RESOURCES = {
-    **{name: f'scripts/{name}' for name in ['authorise-remote.sh', 'remote-check.sh', 'setup-remote.sh', 'uninstall-remote.sh', 'setup-mac.command', 'launch-host.command', 'ssh-policy.sh']},
+    **{name: f'scripts/{name}' for name in ['macos-recovery.sh', 'windows-recovery.ps1', 'WindowsServicePolicy.cs', 'authorise-remote.sh', 'remote-check.sh', 'setup-remote.sh', 'uninstall-remote.sh', 'setup-mac.command', 'launch-host.command', 'ssh-policy.sh']},
     **{name: f'assets/branding/{name}' for name in ['Telynd.icns', 'telynd-logo-v2.png', 'telynd-logo-dark.png']},
 }
 PREFIX = 'Telynd.app/Contents/'

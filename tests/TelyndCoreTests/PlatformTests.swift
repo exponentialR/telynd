@@ -1,0 +1,80 @@
+import XCTest
+@testable import TelyndCore
+
+final class PlatformTests: XCTestCase {
+    let now = Date(timeIntervalSince1970: 1_800_000_000)
+    func fixture(_ desktop: Desktop, _ updates: [String: Any] = [:]) throws -> Data {
+        var data: [String: Any] = ["schemaVersion": 1, "desktopID": desktop.id.uuidString, "platform": desktop.hostPlatform.rawValue,
+                                  "osVersion": "26.4", "architecture": "arm64", "checkedAt": now.timeIntervalSince1970,
+                                  "service": "running", "enablement": "enabled", "installation": "verified", "recovery": "stopped-service", "permissions": "unknown", "outcome": "checked"]
+        data.merge(updates) { _, value in value }
+        return try JSONSerialization.data(withJSONObject: data)
+    }
+    func testOldSSHAndConnectionOnlyDesktopsStayUnknownWithoutLosingDetails() throws {
+        for target in ["", "reader@fixture.example"] {
+            let id = UUID()
+            let json = "{\"id\":\"\(id)\",\"name\":\"Fixture\",\"target\":\"\(target)\",\"identityPath\":\"/tmp/fixture key\",\"lastLaunch\":123.0}"
+            let item = try JSONDecoder().decode(Desktop.self, from: Data(json.utf8))
+            XCTAssertEqual(item.id, id); XCTAssertEqual(item.hostPlatform, .unknown)
+            XCTAssertEqual(item.target, target.isEmpty ? nil : target); XCTAssertEqual(item.identityPath, "/tmp/fixture key")
+            XCTAssertNotNil(item.lastLaunch)
+            XCTAssertEqual(item, try JSONDecoder().decode(Desktop.self, from: JSONEncoder().encode(item)))
+        }
+    }
+    func testAllPlatformSelectionsAllowConnectionOnlyAndSurviveDraftResume() throws {
+        for platform in HostPlatform.allCases {
+            let item = Desktop(name: "Fixture", hostPlatform: platform)
+            XCTAssertTrue(item.valid); XCTAssertNil(item.target)
+            var prefs = Preferences(); prefs.guideDraft = item
+            let decoded = try JSONDecoder().decode(Preferences.self, from: JSONEncoder().encode(prefs))
+            XCTAssertEqual(decoded.guideDraft?.hostPlatform, platform)
+            XCTAssertEqual(platform.usesSSHRecovery, platform == .unknown || platform == .linux)
+        }
+    }
+    func testImportedEvidenceIsBoundToComputerAndPlatform() throws {
+        let mac = Desktop(name: "Mac fixture", hostPlatform: .macos)
+        let data = try fixture(mac)
+        XCTAssertNoThrow(try LocalHostReport.parse(data, desktop: mac, now: now))
+        XCTAssertThrowsError(try LocalHostReport.parse(data, desktop: Desktop(name: "Other", hostPlatform: .macos), now: now))
+        var changed = mac; changed.hostPlatform = .windows
+        XCTAssertThrowsError(try LocalHostReport.parse(data, desktop: changed, now: now))
+    }
+    func testUnknownOrMalformedStatusNeverEstablishesImportedReadiness() throws {
+        let item = Desktop(name: "Fixture", hostPlatform: .windows)
+        for update: [String: Any] in [["schemaVersion": 2], ["platform": "linux"], ["service": "<script>"], ["installation": "yes"], ["permissions": "granted"], ["outcome": "success"], ["osVersion": "bad\nvalue"], ["architecture": String(repeating: "x", count: 129)], ["checkedAt": 0]] {
+            XCTAssertThrowsError(try LocalHostReport.parse(fixture(item, update), desktop: item, now: now), "\(update)")
+        }
+        XCTAssertThrowsError(try LocalHostReport.parse(Data(repeating: 32, count: 16385), desktop: item))
+        XCTAssertThrowsError(try LocalHostReport.parse(Data("{}".utf8), desktop: item))
+    }
+    func testFutureReportsAreRejectedAndOldReportsRemainStale() throws {
+        let item = Desktop(name: "Fixture", hostPlatform: .macos)
+        XCTAssertThrowsError(try LocalHostReport.parse(fixture(item, ["checkedAt": now.timeIntervalSince1970+61]), desktop: item, now: now))
+        let report = try LocalHostReport.parse(fixture(item, ["checkedAt": now.timeIntervalSince1970-301]), desktop: item, now: now).readiness
+        XCTAssertTrue(report.isStale(at: now)); XCTAssertEqual(report.configurationLabel(at: now), "Verification is stale")
+    }
+    func testWindowsCrashScopeAndDisabledDriftStatesRemainDistinct() throws {
+        let item = Desktop(name: "Fixture", hostPlatform: .windows)
+        let report = try LocalHostReport.parse(fixture(item, ["recovery": "crash-only"]), desktop: item, now: now).readiness
+        XCTAssertTrue(report.recoveryEnabled); XCTAssertTrue(report.imported)
+        XCTAssertNil(report.values["ssh"]); XCTAssertNil(report.values["timer"])
+        XCTAssertEqual(report.configurationLabel(at: now), "Crash recovery configured · imported")
+        for (update, label) in [(["enablement": "disabled"], "Chrome host intentionally disabled"), (["installation": "drift"], "Recovery setup needs attention"), (["service": "missing"], "Chrome host service not found"), (["permissions": "needs-attention"], "Host permissions need attention")] {
+            let other = try LocalHostReport.parse(fixture(item, update), desktop: item, now: now).readiness
+            XCTAssertEqual(other.configurationLabel(at: now), label)
+        }
+    }
+    func testKitsArePlatformSpecificAndNeverRequestSecurityBypasses() {
+        XCTAssertTrue(RecoveryKit.files(for: .unknown).isEmpty)
+        XCTAssertTrue(RecoveryKit.files(for: .linux).isEmpty)
+        XCTAssertEqual(RecoveryKit.files(for: .macos), ["macos-recovery.sh"])
+        XCTAssertEqual(RecoveryKit.files(for: .windows), ["windows-recovery.ps1", "WindowsServicePolicy.cs"])
+        for platform in [HostPlatform.macos, .windows] {
+            let desktop = Desktop(name: "Not included in public kit", hostPlatform: platform)
+            let instructions = RecoveryKit.instructions(for: desktop)
+            XCTAssertTrue(instructions.contains(desktop.id.uuidString))
+            XCTAssertFalse(instructions.contains(desktop.name)); XCTAssertFalse(instructions.contains("ExecutionPolicy Bypass"))
+            XCTAssertTrue(instructions.contains("not authenticated"))
+        }
+    }
+}

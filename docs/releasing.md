@@ -35,7 +35,7 @@ Configure two active repository rulesets, with no exclusions or bypass actors:
 
 - A branch ruleset explicitly covering `refs/heads/main` (or all branches),
   requiring at least one approving review, dismissal of stale approvals and
-  current `mac-app` and `recovery` status checks with strict update policy.
+  current `mac-app`, `recovery` and `windows-recovery` status checks with strict update policy.
 - A tag ruleset covering `refs/tags/v*` (or all tags), blocking updates and
   deletion. Create version tags only after source review; do not add a bypass
   actor to make existing tags mutable.
@@ -112,3 +112,12 @@ Only after that evidence is reviewed should a maintainer publish the draft and
 add its **direct asset link** to the quick start. Until then, the
 [release page](https://github.com/exponentialR/telynd/releases) is a status page,
 not a promised download. A failed smoke test keeps the draft unpublished.
+
+## Host kit distribution
+
+The Mac/Windows recovery resources are developer source kits, not signed host
+installers. Passing client signing does not establish host-helper distribution
+or actual Google reconnection. Review #16/#17 for platform signing and real
+installation prerequisites, #18 for Mac/Windows operational evidence, and #13
+for Linux. The release workflow runs Windows SCM fixture checks in a separate
+credential-free job before signing the Mac client.

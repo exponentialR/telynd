@@ -59,6 +59,21 @@ jobs:
       - run: sudo env TELYND_DISPOSABLE_LINUX=1 bash tests/linux-authorisation.sh
       - run: sudo env TELYND_DISPOSABLE_LINUX=1 bash tests/linux-integration.sh
 
+  windows:
+    needs: provenance
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.provenance.outputs.revision }}
+          persist-credentials: false
+      - name: Test native service policy without release credentials
+        shell: powershell
+        env:
+          TELYND_DISPOSABLE_WINDOWS: '1'
+        run: ./tests/windows-policy.ps1
+
   build:
     needs: provenance
     runs-on: macos-latest
@@ -86,7 +101,7 @@ jobs:
           retention-days: 3
 
   signed-draft:
-    needs: [provenance, linux, build]
+    needs: [provenance, linux, windows, build]
     runs-on: macos-latest
     timeout-minutes: 45
     environment: macos-release
