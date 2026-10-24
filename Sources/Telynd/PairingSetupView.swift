@@ -13,6 +13,7 @@ struct PairingSetupView: View {
     @State private var request: UUID?
     @State private var control: PairingProbeControl?
     @State private var downloadCopied = false
+    @State private var showingImport = false
 
     private func cancel() { control?.cancel(); control = nil; request = nil; checking = false }
     private func receive(_ text: String?) {
@@ -48,9 +49,9 @@ struct PairingSetupView: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            if card == nil {
+            if !showingImport {
                 Label("On this Mac", systemImage: "laptopcomputer").font(.headline)
-                Text("Copy the Linux download link, then open this computer’s Google remote desktop. SSH is not needed yet.").font(.callout).foregroundStyle(.secondary)
+                Text("Copy the download link, then open this computer’s Google remote desktop. No existing SSH connection is needed.").font(.callout).foregroundStyle(.secondary)
                 HStack {
                     Button("Copy Linux download link") { downloadCopied = store.copyLinuxSetupDownloadLink() }
                     Button("Open remote desktop") { store.connect(desktop) }
@@ -61,12 +62,13 @@ struct PairingSetupView: View {
                 }
                 Divider()
                 Label("Inside the Linux remote desktop", systemImage: "desktopcomputer").font(.headline)
-                Text("Open a web browser there, paste the link into its address bar and press Enter. This downloads the installer onto the Linux PC.").font(.callout).foregroundStyle(.secondary)
-                Text("When the download finishes, open \(LinuxSetupDownload.filename) from that browser’s Downloads list. Choose Install and approve the administrator prompt. Then find Telynd Setup in that PC’s applications and open it.").font(.callout).foregroundStyle(.secondary)
-                Text("In Telynd Setup, choose Enable SSH if offered and approve the prompt. When ready, choose Copy setup card. The helper finds your login name and addresses for you.").font(.callout).foregroundStyle(.secondary)
-                Text("Ubuntu/Debian desktop preview, downloaded from Telynd’s public GitHub repository. Keep the helper open until you have pasted its setup card.").font(.caption).foregroundStyle(.secondary)
-                Divider()
+                Text("Open a browser inside the remote desktop. Paste the link into its address bar and press Enter to download the Linux installer.").font(.callout).foregroundStyle(.secondary)
+                Text("Open the installer from that browser’s Downloads list. Choose Install and approve the prompt. Then open Telynd Setup from that PC’s applications.").font(.callout).foregroundStyle(.secondary)
+                Text("In the helper, choose Enable SSH if offered and approve it. Then choose Copy setup card: the helper collects the login name and addresses for you.").font(.callout).foregroundStyle(.secondary)
+                Text("Ubuntu/Debian preview from Telynd’s public GitHub repository. Keep the helper open until you paste its card on this Mac.").font(.caption).foregroundStyle(.secondary)
+                Button("Continue to paste setup card") { showingImport = true }.buttonStyle(ConnectButton())
             }
+            if showingImport {
             Label("Back in Telynd on this Mac", systemImage: "doc.on.clipboard").font(.headline)
             Text("Return from the remote desktop and choose Paste setup card below. A setup card is the connection information copied by the Linux helper; it contains no password.").font(.callout).foregroundStyle(.secondary)
             HStack {
@@ -93,15 +95,17 @@ struct PairingSetupView: View {
             }
             if let note { Text(note).font(.callout).foregroundStyle(.secondary) }
             Text("The card contains public setup details and expires after 15 minutes. Keep it private. It does not contain a password, private key or permission to connect.").font(.caption).foregroundStyle(.secondary)
+            Button("Back to Linux setup instructions") { cancel(); card = nil; matchedAddress = nil; note = nil; showingImport = false }
+            }
             DisclosureGroup("Download or clipboard not working?") {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("If the Linux PC cannot download from GitHub: save the installer on this Mac, then use File transfer → Upload file in Google’s remote-session side panel to send it to that PC. Find the uploaded file on Linux and open it there. If upload is unavailable, ask its administrator to provide the installer.")
                     Button("Save installer on this Mac…") { store.exportLinuxSetupHelper() }
-                    Text("If the copied card cannot be pasted here: choose Save setup file in the Linux helper. Use Google’s File transfer → Download file to bring that file to this Mac, then choose Open setup file above. Both transfer directions depend on Google’s available session controls and your organisation’s policy.")
+                    Text("If the copied card cannot be pasted here: choose Save setup file in the Linux helper. Use Google’s File transfer → Download file to bring that file to this Mac. On Telynd’s setup-card screen, choose Open setup file. Both transfer directions depend on Google’s available session controls and your organisation’s policy.")
                     Text("Enabling SSH requires administrator approval on Linux. Existing authentication and firewall policy remain in control; no VPN is installed. Installation and access approval are separate steps.")
                 }.font(.caption).foregroundStyle(.secondary).padding(.top, 8)
             }.font(.callout)
-        }.onChange(of: desktop) { _ in cancel(); card = nil; matchedAddress = nil }
+        }.onChange(of: desktop) { _ in cancel(); card = nil; matchedAddress = nil; showingImport = false }
             .onDisappear { cancel() }
     }
 }

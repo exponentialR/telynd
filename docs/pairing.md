@@ -23,7 +23,8 @@ supplies the connection details, and the Mac checks for a matching route.
    policy, VPN configuration or authorised keys, or open firewall/router ports.
    When ready, choose **Copy setup card**. The helper collects the login name,
    addresses and public SSH identity; the user does not have to find them.
-4. **Back in Telynd on this Mac:** choose **Paste setup card**. A setup card is
+4. **Back in Telynd on this Mac:** choose **Continue to paste setup card**,
+   then **Paste setup card**. A setup card is
    the connection information copied by the Linux helper. Keep the helper open
    until pasting because some Linux clipboard managers retain data only while
    the source app runs. If copied text does not reach this Mac, use the

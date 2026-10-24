@@ -1,5 +1,37 @@
 # Onboarding validation record
 
+## First-time setup instructions and direct Linux download, 24 October 2026
+
+The initial route is a working Google remote session, with no existing SSH
+requirement. The preparation screen separates **On this Mac** from **Inside
+the Linux remote desktop**: copy a download link, open the remote desktop,
+then download and install Telynd Setup in a browser on Linux. The helper offers
+SSH enablement and supplies the login/address details. **Continue to paste
+setup card** opens a separate **Back in Telynd on this Mac** screen. Manual
+installer transfer is a documented fallback, with named Google upload/download
+controls; it is no longer the default journey.
+
+The helper is already committed in the public repository. An actual HTTPS
+request retrieved the fixed-commit `.deb`, byte-identical to the bundled
+installer. The app supplies that URL only when the local installer matches
+its pinned SHA256. There is no mutable latest URL, new public release,
+remote command execution, automatic installation or prerequisite SSH login.
+The Linux user opens the download and approves its installation and SSH setup.
+
+All 73 Swift tests passed, including the URL pin and rejection of mismatched
+installer bytes. Native synthetic checks verified the copy-link success
+feedback, the preparation screen's visible Continue action, a separate paste
+screen with its controls visible without scrolling, and return navigation.
+The app-discovery cache and a refused overwrite of a custom preview bundle
+initially selected an older preview; the final checks used a freshly assembled
+bundle with its new Continue string verified before launch. No private host,
+real Google authentication or Linux administrator prompt was exercised.
+A real first-time-user enrolment pilot remains outstanding.
+
+![Prepare Linux without an existing SSH connection](images/guided-pairing.png)
+
+![Return to the Mac and paste the helper's connection details](images/pairing-paste-details.png)
+
 ## Guided Linux desktop pairing, 24 October 2026
 
 New Linux recovery starts with a desktop helper and short-lived setup card.
