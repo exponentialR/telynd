@@ -6,25 +6,28 @@ supplies the connection details, and the Mac checks for a matching route.
 
 ## What the user does
 
-1. Add the computer through Google's picker and choose **Linux → Save & set up
-   SSH…**, or open its **Recovery settings…** later. Keep its working Google
-   remote session open, or use the PC in person.
-2. Choose **Open remote desktop** to reach it without leaving setup, then
-   **Get setup helper…**. Transfer the exported `.deb` file to that Linux
-   PC using a file-transfer method you already trust. Open it with its graphical
-   package installer, approve installation and launch **Telynd Setup** from the
-   applications menu. Package installation adds the helper and dependencies;
-   it does not itself enable SSH.
-3. The helper checks the PC. If SSH is stopped or missing, choose **Enable SSH…**
-   and approve the Linux administrator prompt. This installs OpenSSH Server if
-   needed and starts/enables its service. Existing authentication and firewall
-   settings govern where it accepts connections; no firewall/router ports,
-   password-login policy, VPN configuration or authorised keys are changed.
-4. Choose **Copy setup card**. Return to Telynd on the Mac and choose **Paste
-   setup card**. Keep the helper open until pasting because some Linux clipboard
-   managers retain data only while its source app is running. If shared
-   clipboard is unavailable, choose **Save setup file…**, transfer that file
-   back and use **Open setup file…** instead.
+1. **On this Mac:** add the computer through Google's picker and choose
+   **Linux → Save & set up SSH…**, or open **Recovery settings…** later. Choose
+   **Copy Linux download link**, then **Open remote desktop**. SSH is not
+   required for these steps: Google's working connection is the initial route.
+2. **Inside the Linux remote desktop:** open a web browser on that PC, paste the
+   copied link into its address bar and press Enter. The installer downloads
+   directly to the Linux PC. Open it from that browser's Downloads list, choose
+   **Install** in the graphical software installer and approve installation.
+   Find **Telynd Setup** in that PC's applications and open it. Package
+   installation adds the helper and dependencies; it does not itself enable SSH.
+3. **Still on Linux:** if the helper offers **Enable SSH…**, choose it and
+   approve the administrator prompt. It installs OpenSSH Server if needed and
+   starts/enables its service. Existing authentication and firewall settings
+   govern where it accepts connections. It does not change password-login
+   policy, VPN configuration or authorised keys, or open firewall/router ports.
+   When ready, choose **Copy setup card**. The helper collects the login name,
+   addresses and public SSH identity; the user does not have to find them.
+4. **Back in Telynd on this Mac:** choose **Paste setup card**. A setup card is
+   the connection information copied by the Linux helper. Keep the helper open
+   until pasting because some Linux clipboard managers retain data only while
+   the source app runs. If copied text does not reach this Mac, use the
+   file-transfer alternative below.
 5. Confirm the displayed PC/account came from your intended machine, then choose
    **Check this computer**. Telynd tries only the card's supplied addresses,
    preferring an existing Tailscale address when reported, and looks for a
@@ -40,6 +43,33 @@ supplies the connection details, and the Mac checks for a matching route.
 No passwords or private keys travel in the setup card. Routine checks and
 recovery use the existing restricted helpers only after successful setup.
 The connection-only option remains available throughout.
+
+## If direct download or shared clipboard is unavailable
+
+Expand **Download or clipboard not working?** in Telynd.
+
+- To transfer the installer: choose **Save installer on this Mac…** and select
+  a folder you can find. In the connected Google remote session, expand its
+  right-hand side panel and choose **File transfer → Upload file**. Select
+  the saved `.deb`, then find and open the uploaded file on Linux. Transfer
+  availability depends on the session and organisation policy; ask the PC's
+  administrator to provide the installer if upload is unavailable.
+- To transfer the setup card as a file: choose **Save setup file…** in the Linux
+  helper. In Google's remote-session side panel choose **File transfer →
+  Download file** and select that file. Back in Telynd on the Mac choose
+  **Open setup file…** and select the downloaded file before its 15-minute expiry.
+
+The normal route uses the existing Google session and a direct download on
+Linux. It does not require SSH in order to install SSH, or require moving an
+installer from the Mac. The user opens the download on Linux and approves
+installation; Telynd does not silently install or remotely launch it.
+
+The preview download comes from Telynd's public GitHub repository at a fixed
+commit. Its URL is supplied only when the bundled installer matches the pinned
+SHA256. This was checked against an actual HTTPS download; it is not a mutable
+latest link or a signed public release. The Linux PC needs HTTPS access to that
+host and its package repositories. Public hosting availability and local
+organisation policy can still prevent download.
 
 ## Supported conditions and limits
 

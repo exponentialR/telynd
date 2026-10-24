@@ -64,3 +64,9 @@ CI installs the package and tests its Tk interface under Xvfb. Pairing cards
 contain private network metadata even though their SSH keys are public; use
 only synthetic cards in tests and screenshots. Keep pairing probes bounded,
 explicit and separate from host trust and login.
+
+When the Debian package changes, commit that package first, then update
+`LinuxSetupDownload` with the containing public commit and the package SHA256.
+The download pin test rejects a link that does not match the bundled installer.
+Keep the download on HTTPS and the fixed Telynd repository. Do not substitute a
+mutable branch or publish a release as part of updating these instructions.

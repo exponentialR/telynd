@@ -113,9 +113,11 @@ The recovery step explains the selected operating system's route. For Linux,
 connection only** skips recovery. Editing retains saved SSH details, and saving
 without opening recovery never disables an existing host timer.
 
-Linux recovery starts with guided pairing. Export the bundled Ubuntu/Debian
-setup helper and open it on the remote PC through an existing Google session
-or physical access. It collects public connection details and can enable SSH
+Linux recovery starts with guided pairing. Copy the pinned Ubuntu/Debian
+helper download link, open a browser inside the existing Google remote session
+and download/install it directly on that Linux PC. Existing SSH is not needed
+for this step. The screen separates actions on this Mac from actions inside
+the Linux desktop; manual installer transfer is a fallback. It collects public connection details and can enable SSH
 after local administrator approval. Bring its short-lived setup card back to
 Telynd; the Mac checks only those candidate IPv4 addresses for a matching public
 host key. It does not log in, trust keys automatically or install a VPN. The

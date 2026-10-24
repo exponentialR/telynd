@@ -322,13 +322,31 @@ import CryptoKit
             NSWorkspace.shared.activateFileViewerSelecting([destination])
         } catch { self.error = "Kit export did not complete: \(error.localizedDescription). Review the destination before retrying." }
     }
+    func copyLinuxSetupDownloadLink() -> Bool {
+        do {
+            let data = try Data(contentsOf: resources.appendingPathComponent(LinuxSetupDownload.filename))
+            guard let url = LinuxSetupDownload.verifiedURL(for: data) else {
+                error = "The download link does not match this build’s installer. Use the file-transfer alternative or update Telynd."
+                return false
+            }
+            NSPasteboard.general.clearContents()
+            guard NSPasteboard.general.setString(url.absoluteString, forType: .string) else {
+                error = "The download link could not be copied. Try again."
+                return false
+            }
+            return true
+        } catch {
+            self.error = "The bundled setup helper could not be read. Rebuild or reinstall Telynd before continuing."
+            return false
+        }
+    }
     func exportLinuxSetupHelper() {
         guard !fixtureMode else { error = "The preview cannot export installers."; return }
-        let panel = NSSavePanel(); panel.title = "Save the setup helper for the Linux PC"
-        panel.nameFieldStringValue = "telynd-setup_0.2.0_all.deb"
+        let panel = NSSavePanel(); panel.title = "Save the Linux installer on this Mac"
+        panel.nameFieldStringValue = LinuxSetupDownload.filename
         guard panel.runModal() == .OK, let destination = panel.url else { return }
         do {
-            let data = try Data(contentsOf: resources.appendingPathComponent("telynd-setup_0.2.0_all.deb"))
+            let data = try Data(contentsOf: resources.appendingPathComponent(LinuxSetupDownload.filename))
             try data.write(to: destination, options: .atomic)
             NSWorkspace.shared.activateFileViewerSelecting([destination])
         } catch { self.error = "The helper could not be saved. Choose a writable folder and try again." }

@@ -328,7 +328,7 @@ struct RecoveryIntroduction: View {
                 VStack(alignment: .leading, spacing: 14) {
                     Label("Linux recovery uses SSH", systemImage: "terminal").font(.headline)
                     Text("The setup helper supplies the details and Telynd finds a matching connection. SSH provides the recovery route behind the scenes.").font(.callout).foregroundStyle(.secondary)
-                    Label("Open the setup helper on your Linux PC.", systemImage: "1.circle")
+                    Label("Download and open Telynd Setup inside your Linux remote desktop.", systemImage: "1.circle")
                     Label("Paste its setup card; Telynd checks the connection.", systemImage: "2.circle")
                     Label("Approve access, then enable recovery.", systemImage: "3.circle")
                     Text("The desktop helper supports Ubuntu/Debian. Both computers need a shared network or existing VPN. One-time passwords and administrator approvals stay in system prompts; manual setup remains available under Advanced.").font(.caption).foregroundStyle(.secondary)
