@@ -42,12 +42,43 @@ being left running across that tick; it does not establish every concurrent or
 active-session preservation case. The checked final state was Google enabled
 and active, with Telynd's timer active. The Mac app remained open.
 
-**Remaining evidence:** recovery elapsed time was not measured from a deliberate
-stop. Controlled interruption with the Mac app closed, intentional disablement,
-update/removal behaviour and final restoration after those tests remain open in
-#13. This was a guided developer-build pilot, not an independent novice study or
-a signed browser-download test. Mac and Windows Google-host pilots remain #18;
-signed Mac client distribution remains #11.
+### Controlled interruption with the Mac client closed
+
+The user separately approved a brief interruption of the same host. Strict SSH
+access, the verified recovery installation and its enabled/active timer were
+checked first. Google's service was active and enabled, with native systemd
+`Restart=no`. Telynd was quit and process absence was verified before signalling
+the Google service.
+
+At **16:48:02 BST**, the test sent SIGTERM to the verified per-account Google
+service main process using a Linux pidfd (a stable process handle that avoids
+signalling a reused PID). This was a process-termination test, not a
+`systemctl stop` or change to Google's enablement/configuration. The unit was
+first observed inactive **2.555 seconds** after the signal.
+
+The first observation of the service active again was **40.825 seconds** after
+the signal, measured with the remote monotonic clock and 0.5-second polling.
+The recovery timer's trigger and Google's active-enter timestamp both reported
+**16:48:42 BST**. The installed helper, rather than Google's native restart
+policy or the closed Mac app, provided automatic recovery. The fixed recovery
+helper was available as the approved fallback but was not needed. No additional
+account-password prompt was encountered.
+
+Final host-side verification reported Google enabled/active, the installation
+verified and the recovery timer enabled/active. Google's device list was
+refreshed and a new connection reported **Connected** in the session UI. Telynd
+was still absent from the Mac's process list through that reconnection check;
+it was reopened only afterwards. Browser interaction was not an instrumented
+measurement of Google's earliest availability or end-to-end reconnect latency.
+The 40.825-second result is the observed service-recovery time for this timer
+phase, not a promised recovery duration.
+
+**Remaining evidence:** intentional disablement, update/removal behaviour and
+final restoration after those additional tests remain open in #13. First-time
+SSH key authorisation was reused rather than tested afresh. These were guided
+developer-build pilots, not an independent novice study or a signed
+browser-download test. Mac and Windows Google-host pilots remain #18; signed
+Mac client distribution remains #11.
 
 ## Cross-platform recovery implementation, 24 October 2026
 
