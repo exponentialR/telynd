@@ -14,15 +14,20 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Check shell syntax
         run: |
-          for script in scripts/*.sh scripts/*.command build.sh; do
+          for script in scripts/*.sh scripts/*.command tests/*.sh build.sh; do
             bash -n "$script"
           done
       - name: Exercise recovery decisions and locking
         run: python3 -m unittest discover -s tests -v
 
+      - name: Verify installation on disposable systemd runner
+        run: sudo env TELYND_DISPOSABLE_LINUX=1 bash tests/linux-integration.sh
+
   mac-app:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Exercise configuration and readiness boundaries
+        run: swift test
       - name: Build and verify app bundle
         run: bash build.sh

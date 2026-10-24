@@ -7,9 +7,10 @@ between a running service and a working Google remote connection.
 Build and check changes from the repository root:
 
 ```sh
+swift test
 bash build.sh
 python3 -m unittest discover -s tests -v
-for script in scripts/*.sh scripts/*.command build.sh; do bash -n "$script"; done
+for script in scripts/*.sh scripts/*.command tests/*.sh build.sh; do bash -n "$script"; done
 ```
 
 Changes to the privileged recovery helper need tests for the relevant failure
@@ -27,3 +28,10 @@ the committed branding exports and do not need the font or image tools.
 
 Describe what changed and how it was checked in each pull request. State live
 Linux, Google connection or hardware checks separately from mock tests and CI.
+
+Run `tests/linux-integration.sh` only as root on an explicitly disposable Linux
+VM or CI runner, with `TELYND_DISPOSABLE_LINUX=1`. It creates a synthetic account,
+a synthetic Chrome service and temporary administrator permissions for that
+test account. It never validates a Google session. Do not run it on a personal
+or production host. See [validation](docs/validation.md) and
+[release preparation](docs/releasing.md) for evidence boundaries.

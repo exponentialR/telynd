@@ -1,0 +1,71 @@
+name: Prepare signed macOS release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing reviewed version tag, for example v0.2.0
+        type: string
+        required: true
+      onboarding_validated:
+        description: The onboarding evidence for this source revision has been reviewed
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: signed-release
+  cancel-in-progress: false
+
+jobs:
+  linux:
+    if: inputs.onboarding_validated
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+      - run: python3 -m unittest discover -s tests -v
+      - run: sudo env TELYND_DISPOSABLE_LINUX=1 bash tests/linux-integration.sh
+
+  signed-draft:
+    needs: linux
+    runs-on: macos-latest
+    environment: macos-release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify tagged source
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
+          swift test
+          python3 -m unittest discover -s tests -v
+          for script in scripts/*.sh scripts/*.command tests/*.sh build.sh; do bash -n "$script"; done
+      - name: Sign, notarise, staple and verify
+        env:
+          TELYND_RELEASE_TAG: ${{ inputs.tag }}
+          DEVELOPER_ID_APPLICATION: ${{ vars.DEVELOPER_ID_APPLICATION }}
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_NOTARY_KEY: ${{ secrets.APPLE_NOTARY_KEY }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+        run: bash scripts/release-macos.sh
+      - name: Create draft only; quarantine smoke test precedes publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          gh release create "$RELEASE_TAG" dist/* --draft --verify-tag --title "Telynd $RELEASE_TAG" --notes-file docs/release-notes.md
