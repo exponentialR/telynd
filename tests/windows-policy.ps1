@@ -12,9 +12,11 @@ $acl.SetAccessRuleProtection($true,$false)
 $acl.SetOwner([Security.Principal.SecurityIdentifier]'S-1-5-32-544')
 foreach ($sid in @('S-1-5-18','S-1-5-32-544')) { $acl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule(([Security.Principal.SecurityIdentifier]$sid),'FullControl','ContainerInherit,ObjectInherit','None','Allow'))) }
 Set-Acl -LiteralPath $root -AclObject $acl
-$exe=Join-Path $root 'fixture.exe'
-$counter=Join-Path $root 'starts'
-$crash=Join-Path $root 'crash'
+$googleFolder=Join-Path $root 'Google/Chrome Remote Desktop'
+$null=New-Item -ItemType Directory $googleFolder
+$exe=Join-Path $googleFolder 'remoting_host.exe'
+$counter=Join-Path $googleFolder 'starts'
+$crash=Join-Path $googleFolder 'crash'
 $fixtureSource=@'
 using System;
 using System.IO;
@@ -40,31 +42,104 @@ try {
     $compiler=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
     & $compiler /nologo /target:winexe /reference:System.ServiceProcess.dll ("/out:"+$exe) $sourceFile
     Assert ($LASTEXITCODE -eq 0) 'Fixture compilation failed'
-    & sc.exe create $service binPath= ('"'+$exe+'"') start= demand | Out-Null
+    & sc.exe create $service binPath= ('"'+$exe+'"') start= auto | Out-Null
     Assert ($LASTEXITCODE -eq 0) 'Fixture registration failed'
     Start-Service $service
     Copy-Item "$PSScriptRoot/../scripts/WindowsServicePolicy.cs" $root
-    # Adapt only the fixed service/store and Google identity provider in a copy.
-    # Real SCM, native policy marshal/read/write, ACLs and ledger code remain.
+    # Keep Get-ChromeHost and its security decisions intact. Only substitute
+    # the synthetic installation root/signature and fixed service/store names.
+    # Real executable ancestry, registry ACL and service DACL checks still run.
     $source=Get-Content -Raw "$PSScriptRoot/../scripts/windows-recovery.ps1"
     $tokens=$null; $errors=$null
     $ast=[Management.Automation.Language.Parser]::ParseInput($source,[ref]$tokens,[ref]$errors)
     Assert ($errors.Count -eq 0) 'Production PowerShell syntax errors'
-    $fn=$ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-ChromeHost'},$true)
-    $replacement="function Get-ChromeHost { return Get-CimInstance Win32_Service -Filter `"Name='TelyndRecoveryFixture'`" }"
+    $fn=$ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-ChromeInstallRoots'},$true)
+    $replacement="function Get-ChromeInstallRoots { return '"+$root.Replace("'","''")+"' }"
     $source=$source.Remove($fn.Extent.StartOffset,$fn.Extent.EndOffset-$fn.Extent.StartOffset).Insert($fn.Extent.StartOffset,$replacement)
+    $source=$source.Replace("Name='chromoting'","Name='TelyndRecoveryFixture'")
+    $source=$source.Replace('Services\chromoting','Services\TelyndRecoveryFixture')
     $source=$source.Replace("`$ServiceName = 'chromoting'","`$ServiceName = 'TelyndRecoveryFixture'")
     $source=$source.Replace("`$Store = Join-Path ([Environment]::GetFolderPath('CommonApplicationData')) 'TelyndRecovery'","`$Store = '"+$root.Replace("'","''")+"\owned'")
     $script=Join-Path $root 'windows-recovery.ps1'; Set-Content -LiteralPath $script -Value $source -Encoding UTF8
+    # This fixture is unsigned. Replace the external signature query, never
+    # the validator, and exercise both acceptance and rejection below.
+    $global:TelyndFixtureSignatureStatus='Valid'; $global:TelyndFixtureSignaturePublisher='Google LLC'
+    function Get-AuthenticodeSignature {
+        param([string]$LiteralPath)
+        Assert ($LiteralPath -eq $exe) 'Unexpected executable signature query'
+        $cert=New-Object PSObject
+        $cert | Add-Member NoteProperty Publisher $global:TelyndFixtureSignaturePublisher
+        $cert | Add-Member ScriptMethod GetNameInfo { param($kind,$issuer) return $this.Publisher }
+        return [pscustomobject]@{Status=$global:TelyndFixtureSignatureStatus;SignerCertificate=$cert}
+    }
     $id='00000000-0000-0000-0000-000000000001'
     $before=& $script -Action check -DesktopID $id | ConvertFrom-Json
     Assert ($before.installation -eq 'missing') 'Expected missing installation'
     Assert (-not (Test-Path (Join-Path $root 'owned'))) 'Check mutated filesystem'
+    function Assert-CheckRefused([string]$message) {
+        $refused=$false; try { $null=& $script -Action check -DesktopID $id } catch { $refused=$true }
+        Assert $refused $message
+    }
+    foreach ($status in @('NotSigned','HashMismatch','UnknownError')) {
+        $global:TelyndFixtureSignatureStatus=$status
+        Assert-CheckRefused 'Invalid executable signature accepted'
+    }
+    $global:TelyndFixtureSignatureStatus='Valid'; $global:TelyndFixtureSignaturePublisher='Other Publisher'
+    Assert-CheckRefused 'Foreign publisher accepted'
+    $global:TelyndFixtureSignaturePublisher='Google LLC'
+    # Refuse executable substitution, launchers and unexpected service accounts.
+    foreach ($path in @($exe, ('"'+$root+'\other.exe"'), ('"'+$root+'\remoting_host.exe"'))) {
+        & sc.exe config $service binPath= $path | Out-Null
+        Assert ($LASTEXITCODE -eq 0) 'Fixture image update failed'
+        Assert-CheckRefused 'Unsafe service executable accepted'
+    }
+    & sc.exe config $service binPath= ('"'+$exe+'"') obj= 'NT AUTHORITY\LocalService' | Out-Null
+    Assert ($LASTEXITCODE -eq 0) 'Fixture account update failed'
+    Assert-CheckRefused 'Unexpected service account accepted'
+    & sc.exe config $service obj= LocalSystem | Out-Null
+    Assert ($LASTEXITCODE -eq 0) 'Fixture account restoration failed'
+    $exeAcl=Get-Acl -LiteralPath $exe
+    $unsafeExeAcl=Get-Acl -LiteralPath $exe
+    $unsafeExeAcl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule(([Security.Principal.SecurityIdentifier]'S-1-5-11'),'Write','Allow')))
+    Set-Acl -LiteralPath $exe -AclObject $unsafeExeAcl
+    Assert-CheckRefused 'Writable executable accepted'
+    Set-Acl -LiteralPath $exe -AclObject $exeAcl
+    $registryPath='HKLM:\SYSTEM\CurrentControlSet\Services\TelyndRecoveryFixture'
+    $registryAcl=Get-Acl -LiteralPath $registryPath
+    $unsafeRegistryAcl=Get-Acl -LiteralPath $registryPath
+    $unsafeRegistryAcl.AddAccessRule((New-Object Security.AccessControl.RegistryAccessRule(([Security.Principal.SecurityIdentifier]'S-1-5-11'),'SetValue','Allow')))
+    Set-Acl -LiteralPath $registryPath -AclObject $unsafeRegistryAcl
+    Assert-CheckRefused 'Writable service registry accepted'
+    Set-Acl -LiteralPath $registryPath -AclObject $registryAcl
+    $serviceSddl=[Telynd.ServicePolicy]::Security($service)
+    $unsafeSddl=New-Object Security.AccessControl.RawSecurityDescriptor($serviceSddl)
+    $unsafeSddl.DiscretionaryAcl.InsertAce(0,(New-Object Security.AccessControl.CommonAce([Security.AccessControl.AceFlags]::None,[Security.AccessControl.AceQualifier]::AccessAllowed,2,([Security.Principal.SecurityIdentifier]'S-1-5-11'),$false,$null)))
+    & sc.exe sdset $service ($unsafeSddl.GetSddlForm([Security.AccessControl.AccessControlSections]::All)) | Out-Null
+    Assert ($LASTEXITCODE -eq 0) 'Unsafe fixture service DACL update failed'
+    Assert-CheckRefused 'Writable service DACL accepted'
+    & sc.exe sdset $service $serviceSddl | Out-Null
+    Assert ($LASTEXITCODE -eq 0) 'Fixture service DACL restoration failed'
     $original=[Telynd.ServicePolicy]::Read($service) | ConvertTo-Json -Depth 8 -Compress
     Assert (([Telynd.ServicePolicy]::Security($service)).Contains('D:')) 'Native service security descriptor was not returned'
     $installed=& $script -Action install -DesktopID $id | ConvertFrom-Json
     Assert ($installed.installation -eq 'verified') 'Install read-back failed'
     $null=& $script -Action install -DesktopID $id
+    # Google deliberately stops a host by setting demand (CIM Manual). Do not
+    # restart it or advertise enabled recovery even with our valid ledger.
+    Stop-Service $service
+    foreach ($mode in @('demand','disabled')) {
+        & sc.exe config $service start= $mode | Out-Null
+        Assert ($LASTEXITCODE -eq 0) 'Fixture disablement update failed'
+        $report=& $script -Action recover -DesktopID $id | ConvertFrom-Json
+        Assert ($report.enablement -eq 'disabled' -and $report.outcome -eq 'unchanged') 'Intentional disablement ignored'
+        Assert ((Get-Service $service).Status -eq 'Stopped') 'Intentionally stopped host restarted'
+        $refused=$false; try { $null=& $script -Action install -DesktopID $id } catch { $refused=$true }
+        Assert $refused 'Install accepted intentionally disabled host'
+    }
+    & sc.exe config $service start= auto | Out-Null
+    Assert ($LASTEXITCODE -eq 0) 'Fixture enablement restoration failed'
+    $report=& $script -Action recover -DesktopID $id | ConvertFrom-Json
+    Assert ($report.outcome -eq 'started' -and $report.enablement -eq 'enabled') 'Automatic stopped host did not recover'
     # A ledger writable by ordinary users must be refused before using it.
     $ledgerPath=Join-Path $root 'owned/chromoting.json'
     $originalAcl=Get-Acl -LiteralPath $ledgerPath
@@ -116,6 +191,7 @@ try {
     }
     Write-Output 'Windows native policy, ledger restoration, drift refusal and bounded SCM recovery passed.'
 } finally {
+    Remove-Variable TelyndFixtureSignatureStatus,TelyndFixtureSignaturePublisher -Scope Global -ErrorAction SilentlyContinue
     Stop-Service $service -ErrorAction SilentlyContinue
     & sc.exe delete $service | Out-Null
     Remove-Item -LiteralPath $root -Recurse -Force

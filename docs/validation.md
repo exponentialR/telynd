@@ -11,7 +11,7 @@ The earlier Linux/onboarding evidence below remains scoped to that implementatio
 | --- | --- | --- |
 | Local macOS 26.4.1 / ARM64 | Swift migration/report tests; Mac file/command fixtures; native SwiftUI Windows kit/report-import journey | Synthetic identities and reports; no personal host mutations |
 | CI macOS runner, reported 26.6.2 / 25G83 / ARM64 | Real launchd bootstrap, idempotent start, active preservation, deliberate disablement, persistent Telynd disable and verified removal against an ad-hoc signed synthetic host | Fixture replaces Google's identity/root-ownership provider; no Google registration or privacy approval |
-| CI Windows Server 2025 / 10.0.26100 / AMD64 | Real SCM service, native policy/security-descriptor queries, policy apply/read-back, retry, drift refusal, ACL refusal, restoration and bounded crash recovery | Synthetic service; Google identity provider is replaced in a test copy; no Windows 11 Google-host installation |
+| CI Windows Server 2025 / 10.0.26100 / AMD64 | Real SCM service, native policy/security-descriptor queries, policy apply/read-back, retry, drift refusal, ACL refusal, restoration and bounded crash recovery | Synthetic service; Only the synthetic root and signature query are substituted; production host validation runs against real file, registry and service ACLs; no Windows 11 Google-host installation |
 | Windows PowerShell 5.1 and PowerShell 7 on that runner | Same native service lifecycle under both runtimes | Does not establish every desktop Windows version or enterprise policy |
 | Ubuntu/systemd CI | Existing real Linux install/authorisation/ancestry/removal regression coverage | Synthetic Chrome service; real Google pilot remains #13 |
 
@@ -21,8 +21,8 @@ at source `ccefab4f944bc9337af1021f5c58f423cd674f1f`. Subsequent commits refine
 UI copy, bounded regular-file report reads, native-test output isolation and
 additional service-security coverage; inspect the PR's current checks before merging.
 
-Current local coverage: 30 Swift tests and 39 discovered Python tests (38 run on
-macOS, one Linux-only flock test skipped; Linux skips seven Mac-only tests).
+Current local coverage: 30 Swift tests and 41 discovered Python tests (40 run on
+macOS, one Linux-only flock test skipped; Linux skips nine Mac-only tests).
 Windows and native launchd tests are separate disposable CI scripts. File
 fixtures replace fixed command/path providers only in copies; product scripts
 have no testing bypass parameter or configurable service target.

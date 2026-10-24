@@ -35,8 +35,14 @@ weaker verification.
 Run the kit's `disable` command to unload Telynd's agent and keep it disabled
 across logins, or `uninstall` to remove
 verified owned components. Google remains installed. An interrupted bootstrap
-can be retried with the same kit; modified/partial files and stale locks require
-review. Do not remove a lock during an active operation. To update the helper,
+can be retried with the same kit. Native file locks release after interruption;
+the empty `operation.lock` file stays in place and must not be deleted. The
+host needs native `lockf` descriptor support; older implementations are refused
+before changing the helper or launch agent. This is tested on macOS 26, not
+a claim of compatibility with earlier host releases. A check
+during an active operation reports setup needing attention. Modified/partial
+files and a legacy directory named `lock` require review before upgrading.
+Do not remove a legacy lock during an active operation. To update the helper,
 uninstall the verified old revision first, then install the new kit.
 
 ## Windows limits and removal
@@ -47,7 +53,9 @@ failure-count reset after a quiet day. Google's installer already has recovery
 settings; Telynd records them before applying its bounded policy.
 
 **An orderly service stop is not automatically recovered.** An explicit local
-`recover` command can start a stopped, non-disabled verified service. Native
+`recover` command can start a stopped verified service only when its start mode
+is Automatic. Google uses Manual when deliberately stopping a host; Telynd
+reports Manual and Disabled modes as disabled and leaves them stopped. Native
 failure handling can also cover error exits if Google's existing flag enables
 them. No Telynd background service, task or network listener is installed.
 

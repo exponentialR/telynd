@@ -42,6 +42,9 @@ function Assert-ProtectedPath([string]$Path, [switch]$ParentOnly) {
         $leaf = $false
     }
 }
+function Get-ChromeInstallRoots {
+    return @([Environment]::GetFolderPath('ProgramFiles'), [Environment]::GetFolderPath('ProgramFilesX86')) | Where-Object { $_ }
+}
 function Get-ChromeHost {
     $service = Get-CimInstance Win32_Service -Filter "Name='chromoting'"
     if ($null -eq $service) { return $null }
@@ -49,7 +52,7 @@ function Get-ChromeHost {
     # and any executable outside the Google Chrome Remote Desktop installation.
     if ($service.PathName -notmatch '^"([^"\r\n]+\\remoting_host\.exe)"(?:\s+.*)?$' -or $service.StartName -ne 'LocalSystem') { throw 'Unrecognised Chrome host service.' }
     $exe = [IO.Path]::GetFullPath($Matches[1])
-    $roots = @([Environment]::GetFolderPath('ProgramFiles'), [Environment]::GetFolderPath('ProgramFilesX86')) | Where-Object { $_ }
+    $roots = @(Get-ChromeInstallRoots)
     if (-not ($roots | Where-Object { $exe.StartsWith((Join-Path $_ 'Google\Chrome Remote Desktop\'),[StringComparison]::OrdinalIgnoreCase) })) { throw 'Unexpected Chrome host executable location.' }
     Assert-ProtectedPath $exe
     $sig = Get-AuthenticodeSignature -LiteralPath $exe
@@ -135,7 +138,7 @@ try {
         if ($null -eq $hostService) { throw 'Chrome Remote Desktop is not installed.' }
         if ($null -ne $data -and $data.image -ne $hostService.PathName) { throw 'Chrome host changed since setup. Review before modifying its recovery policy.' }
         if ($Action -eq 'install') {
-            if ($hostService.StartMode -eq 'Disabled' -or $hostService.State -ne 'Running') { throw 'Enable and connect to the Chrome host before installing crash recovery.' }
+            if ($hostService.StartMode -ne 'Auto' -or $hostService.State -ne 'Running') { throw 'Enable and connect to the Chrome host before installing crash recovery.' }
             if ($null -eq $data) {
                 $desired = Convert-Policy $policy
                 $desired.Reset=86400
@@ -159,14 +162,16 @@ try {
         } else {
             if ($null -eq $data -or $data.state -ne 'installed' -or (Policy-JSON $policy) -ne (Policy-JSON $data.desired)) { throw 'Crash recovery ownership is not verified.' }
             $outcome='unchanged'
-            if ($hostService.StartMode -ne 'Disabled' -and $hostService.State -eq 'Stopped') { Start-Service -Name $ServiceName; $outcome='started' }
+            if ($hostService.StartMode -eq 'Auto' -and $hostService.State -eq 'Stopped') { Start-Service -Name $ServiceName; $outcome='started' }
         }
         $hostService = Get-ChromeHost
         $policy = [Telynd.ServicePolicy]::Read($ServiceName)
     }
     $installation='missing'; $service='missing'; $enablement='unknown'; $scope='unavailable'
     if ($null -ne $hostService) {
-        $scope='crash-only'; $enablement=if ($hostService.StartMode -eq 'Disabled') {'disabled'} else {'enabled'}
+        # Google's StopDaemon uses Manual (demand start), not Disabled. Only
+        # its explicit automatic mode permits a Telynd-requested start.
+        $scope='crash-only'; $enablement=switch ($hostService.StartMode) { 'Auto' {'enabled'} 'Manual' {'disabled'} 'Disabled' {'disabled'} default {'unknown'} }
         $service=switch ($hostService.State) { 'Running' {'running'} 'Stopped' {'stopped'} default {'transitioning'} }
     }
     if ($null -ne $data) {

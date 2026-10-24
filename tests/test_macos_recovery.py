@@ -3,9 +3,11 @@ import json
 import os
 from pathlib import Path
 import plistlib
+import signal
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -43,6 +45,10 @@ class MacRecoveryTest(unittest.TestCase):
         self.script=self.root/'macos-recovery.sh'; self.script.write_text(source)
         (self.bin/'codesign').write_text('''#!/bin/bash
 [[ "$*" == *'=anchor apple generic'* && "$*" == *EQHXZ8M8AV* ]] || exit 2
+if [ "${TELYND_FIXTURE_PAUSE:-0}" = 1 ]; then
+  touch "$TELYND_FIXTURE_ROOT/paused"
+  sleep 30
+fi
 [ ! -e "$TELYND_FIXTURE_ROOT/bad-signature" ]
 ''')
         (self.bin/'launchctl').write_text('''#!/bin/bash
@@ -137,11 +143,45 @@ esac
         self.assertTrue((self.root/'loaded').exists())
         helper.write_text(original)
         (self.folder/'lock').mkdir()
+        self.assertEqual(self.run_mode('check')['installation'],'partial')
         self.run_mode('recover',ok=False)
         (self.folder/'lock').rmdir()
         helper.unlink(); helper.symlink_to(self.script)
         self.run_mode('recover',ok=False)
         self.assertFalse((self.root/'starts').exists())
+
+    def test_kernel_lock_serializes_and_recovers_after_sigkill(self):
+        self.run_mode('install')
+        process=subprocess.Popen(['bash',str(self.script),'tick',ID],
+            env=dict(self.env,TELYND_FIXTURE_PAUSE='1'),start_new_session=True,
+            stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+        try:
+            deadline=time.monotonic()+5
+            while not (self.root/'paused').exists() and time.monotonic()<deadline:
+                time.sleep(0.02)
+            self.assertTrue((self.root/'paused').exists(),'Fixture never acquired lock')
+            self.assertEqual(self.run_mode('check')['installation'],'partial')
+            self.run_mode('tick',ok=False)
+            self.assertFalse((self.root/'starts').exists())
+        finally:
+            os.killpg(process.pid,signal.SIGKILL)
+            process.communicate(timeout=5)
+        self.assertTrue((self.folder/'operation.lock').is_file())
+        self.assertEqual(self.run_mode('check')['installation'],'verified')
+        self.assertEqual(self.run_mode('tick')['outcome'],'started')
+        self.assertEqual((self.root/'starts').read_text(),'start\n')
+
+    def test_kernel_lock_rejects_links_without_modifying_their_targets(self):
+        self.run_mode('install')
+        lock=self.folder/'operation.lock'; lock.unlink()
+        target=self.folder/'untouched'; target.write_text('original'); target.chmod(0o600)
+        for kind in ['symlink','hardlink']:
+            if kind=='symlink': lock.symlink_to(target)
+            else: os.link(target,lock)
+            self.run_mode('check',ok=False)
+            self.run_mode('tick',ok=False)
+            self.assertEqual(target.read_text(),'original')
+            lock.unlink()
 
     def test_failed_bootstrap_is_retryable_and_unrecognised_partial_is_preserved(self):
         (self.root/'fail-bootstrap').touch()

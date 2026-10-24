@@ -60,9 +60,10 @@ final class PlatformTests: XCTestCase {
         XCTAssertTrue(report.recoveryEnabled); XCTAssertTrue(report.imported)
         XCTAssertNil(report.values["ssh"]); XCTAssertNil(report.values["timer"])
         XCTAssertEqual(report.configurationLabel(at: now), "Crash recovery configured · imported")
-        for (update, label) in [(["enablement": "disabled"], "Chrome host intentionally disabled"), (["installation": "drift"], "Recovery setup needs attention"), (["installation": "disabled"], "Recovery disabled · imported"), (["installation": "missing"], "Recovery not configured · imported"), (["service": "missing"], "Chrome host service not found"), (["permissions": "needs-attention"], "Host permissions need attention")] {
+        for (update, label) in [(["enablement": "disabled"], "Chrome host intentionally disabled"), (["installation": "drift"], "Recovery setup needs attention"), (["installation": "partial"], "Recovery setup needs attention"), (["installation": "disabled"], "Recovery disabled · imported"), (["installation": "missing"], "Recovery not configured · imported"), (["service": "missing"], "Chrome host service not found"), (["permissions": "needs-attention"], "Host permissions need attention")] {
             let other = try LocalHostReport.parse(fixture(item, update), desktop: item, now: now).readiness
             XCTAssertEqual(other.configurationLabel(at: now), label)
+            if update["installation"] == "partial" || update["enablement"] == "disabled" { XCTAssertFalse(other.recoveryEnabled) }
         }
     }
     func testKitsArePlatformSpecificAndNeverRequestSecurityBypasses() {

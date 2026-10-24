@@ -61,8 +61,10 @@ The agent checks Google's root-owned installation, signed Google team identity,
 enablement marker and launchd disablement before every start. Google config and
 credentials are never read. Deliberately disabled, running, transitioning,
 missing-session and throttled jobs are left alone. Disabling the agent persists across logins; explicit installation re-enables it.
-A stale mutation lock fails
-closed; review it manually after interruption. Telynd does not bypass TCC or SIP.
+A native descriptor lock serialises mutations and releases automatically after
+process death or reboot. Checks report partial readiness during contention.
+Legacy directory locks still require manual review and report partial readiness.
+Telynd does not bypass TCC or SIP.
 
 Windows checks the fixed `chromoting` service, signed Google executable under
 Program Files, local-system account, file/registry ancestry and service DACL.
@@ -73,7 +75,9 @@ image before mutation. An exclusive file lock serialises actions. Recognised
 prepared state supports retry; third-party drift stops setup/removal. Disable
 restores the previous policy; uninstall restores it and removes the ledger.
 Neither action changes Google start mode, registration or passwords. A manually
-requested start checks current disabled/stopped state; it is not unattended
+requested start requires Automatic start mode and a stopped service. Google
+uses Manual when deliberately stopping its host, so both Manual and Disabled
+are reported disabled and never started by Telynd. It is not unattended
 orderly-stop recovery. Product scripts expose no configurable service target.
 
 ## Packaging and evidence boundaries

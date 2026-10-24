@@ -25,6 +25,7 @@ google_binary="$google_app/Contents/MacOS/remoting_me2me_host_service"
 enabled_marker=/Library/PrivilegedHelperTools/org.chromium.chromoting.me2me_enabled
 target="$domain/org.chromium.chromoting"
 outcome=checked
+lock_owned=false
 
 # An ordinary user agent executes only as that user; still refuse links,
 # hardlinks, unsafe ancestors and foreign files instead of repairing them.
@@ -120,16 +121,35 @@ report() {
       elif launchctl print "$domain/$label" >/dev/null 2>&1; then installation=drift; fi
     fi
   elif [ -e "$helper" ] || [ -e "$agent" ]; then installation=partial; fi
+  # A check must not call recovery ready while a mutation holds the lock, or
+  # while an old kit's interrupted directory lock still needs manual review.
+  if [ -e "$folder/lock" ] || [ -L "$folder/lock" ]; then installation=partial; fi
+  if [ "$lock_owned" = false ] && { [ -e "$folder/operation.lock" ] || [ -L "$folder/operation.lock" ]; }; then
+    safe_file "$folder/operation.lock" 600 || fail 'Unsafe recovery lock.'
+    if ! (exec 9< "$folder/operation.lock"; lockf -s -t 0 9); then installation=partial; fi
+  fi
   local version architecture
   version=$(sw_vers -productVersion); architecture=$(uname -m)
   [[ "$version" =~ ^[0-9.]+$ && "$architecture" =~ ^[A-Za-z0-9_]+$ ]] || fail 'Unexpected system version.'
   printf '{"schemaVersion":1,"desktopID":"%s","platform":"macos","osVersion":"%s","architecture":"%s","checkedAt":%s,"service":"%s","enablement":"%s","installation":"%s","recovery":"%s","permissions":"unknown","outcome":"%s"}\n' "$desktop_id" "$version" "$architecture" "$(date +%s)" "$service" "$enablement" "$installation" "$recovery" "$outcome"
 }
 if [ "$mode" = check ]; then inspect_google; report; exit 0; fi
-# Serialize all mutations. A stale lock fails closed and requires review.
+# Keep one inode for every invocation. The kernel releases the descriptor's
+# lock after exit, SIGKILL or reboot; never unlink it while another action runs.
 mkdir -p "$folder"; chmod 700 "$folder"
-mkdir "$folder/lock" 2>/dev/null || fail 'Another action is running, or a previous interrupted action needs review.'
-trap 'rmdir "$folder/lock" 2>/dev/null || true' EXIT
+[ ! -e "$folder/lock" ] && [ ! -L "$folder/lock" ] || fail 'A previous kit left a directory lock. Review it before upgrading.'
+if [ -e "$folder/operation.lock" ] || [ -L "$folder/operation.lock" ]; then
+  safe_file "$folder/operation.lock" 600 || fail 'Unsafe recovery lock.'
+fi
+exec 9>> "$folder/operation.lock"
+lock_status=0
+lockf -s -t 0 9 2>/dev/null || lock_status=$?
+case "$lock_status" in
+  0) ;;
+  75) fail 'Another recovery action is running.';;
+  *) fail 'This Mac lacks the required native descriptor locking support. Recovery was not installed or changed.';;
+esac
+lock_owned=true
 for file in "$folder/attempts"; do
   if [ -e "$file" ] || [ -L "$file" ]; then safe_file "$file" 600 || fail 'Unsafe recovery state.'; fi
 done
