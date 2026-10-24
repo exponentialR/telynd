@@ -22,6 +22,11 @@ set -eu
 name=${0##*/}
 printf '%s\\n' "$name $*" >> "$TEST_ACTIONS"
 if [ "$name" = "$TEST_FAIL" ]; then exit "$TEST_FAIL_CODE"; fi
+if [ "$name" = ssh ]; then
+  phase=ssh-verify
+  [[ "$*" != *'exec /bin/sh -c'* ]] || phase=ssh-install
+  [ "$phase" != "$TEST_FAIL" ] || exit "$TEST_FAIL_CODE"
+fi
 if [ "$name" = ssh ] && [[ "$*" == *mktemp* ]]; then echo /tmp/telynd-setup.12345678; fi
 '''
         for command in ['ssh','scp','ssh-add','ssh-copy-id','ssh-keygen']:
@@ -36,22 +41,23 @@ if [ "$name" = ssh ] && [[ "$*" == *mktemp* ]]; then echo /tmp/telynd-setup.1234
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('result=ssh_ready', receipt)
         self.assertIn('StrictHostKeyChecking=yes', actions)
-        copy = next(line for line in actions.splitlines() if line.startswith('ssh-copy-id '))
+        copy = next(line for line in actions.splitlines() if line.startswith('ssh -T '))
         self.assertIn('StrictHostKeyChecking=ask', copy)
         self.assertIn('ForwardAgent=no', copy)
         self.assertIn('ControlPath=none', copy)
+        self.assertNotIn('ssh-copy-id ', actions)
         self.assertNotIn('scp ', actions); self.assertNotIn('sudo', actions)
         self.assertEqual((root/'result').stat().st_mode & 0o777, 0o600)
 
     def test_login_and_verification_failures_have_distinct_receipts(self):
-        for command, expected in [('ssh-copy-id','authentication_failed'),('ssh','verification_unavailable')]:
+        for command, expected in [('ssh-install','authentication_failed'),('ssh-verify','verification_unavailable')]:
             result, receipt, actions, _ = self.flow('authorise', command)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn('result='+expected, receipt)
             self.assertNotIn('result=ssh_ready', receipt)
 
     def test_cancelled_authorisation_never_reports_ready(self):
-        result, receipt, actions, _ = self.flow('authorise', 'ssh-copy-id', failure_code=130)
+        result, receipt, actions, _ = self.flow('authorise', 'ssh-install', failure_code=130)
         self.assertEqual(result.returncode, 130)
         self.assertIn('result=cancelled', receipt)
         self.assertNotIn('result=ssh_ready', receipt)

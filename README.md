@@ -52,6 +52,7 @@ SSH access and recovery. Tailscale is an optional existing network route.
 | `Sources/TelyndCore/` | Models, private persistence, profile metadata, readiness and bounded process execution |
 | `scripts/remote-check.sh` | Read-only structured readiness; explicit recovery mode |
 | `scripts/setup-mac.command` | Separate SSH authorisation, key creation and installer actions, with private receipts |
+| `scripts/authorise-remote.sh` | Fixed Linux public-key installer; stdin data, private files and preserved restrictions |
 | `scripts/setup-remote.sh` | Root-owned fixed helpers, timer, narrow sudoers and verification record |
 | `scripts/uninstall-remote.sh` | Explicit verified disable/uninstall |
 | `tests/` | Swift core tests, shell protocol/decision fixtures and disposable Linux integration |

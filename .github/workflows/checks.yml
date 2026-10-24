@@ -22,6 +22,8 @@ jobs:
 
       - name: Reject unsafe Linux directory ancestors
         run: sudo env TELYND_DISPOSABLE_LINUX=1 bash tests/linux-path-security.sh
+      - name: Verify public-key authorisation in a disposable account
+        run: sudo env TELYND_DISPOSABLE_LINUX=1 bash tests/linux-authorisation.sh
       - name: Verify installation on disposable systemd runner
         run: sudo env TELYND_DISPOSABLE_LINUX=1 bash tests/linux-integration.sh
 
@@ -31,6 +33,10 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Exercise configuration and readiness boundaries
         run: swift test
+      - name: Exercise key authorisation and SSH parsing
+        run: |
+          python3 -m unittest discover -s tests -p test_authorisation.py -v
+          python3 -m unittest discover -s tests -p test_ssh_policy.py -v
       - name: Build and verify app bundle
         run: bash build.sh
       - name: Validate signing transport without credentials

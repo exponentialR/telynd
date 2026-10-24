@@ -1,6 +1,6 @@
 #!/bin/bash
 # Passwords and passphrases are handled by SSH, ssh-keygen, Keychain and sudo.
-set -eu
+set -euo pipefail
 umask 077
 target=${1:-}
 mode=${2:-authorise}
@@ -38,12 +38,19 @@ resources=$(cd "$(dirname "$0")" && pwd)
 . "$resources/ssh-policy.sh"
 telynd_ssh_policy yes "$key"
 if [ "$mode" = authorise ]; then
+  [ "$(wc -c < "$key.pub")" -le 16384 ] || { echo 'Public key is too large.'; exit 1; }
+  public_key=$(cat < "$key.pub")
+  case "$public_key" in ''|*$'\n'*|*$'\r'*) echo 'Choose a file containing one SSH public key.'; exit 1;; esac
+  printf '%s\n' "$public_key" | ssh-keygen -l -f /dev/stdin >/dev/null
   echo 'Verify any new host fingerprint against a trusted record before accepting it.'
   echo 'Enter your Linux login password directly in SSH. This step does not install recovery.'
   ssh-add --apple-use-keychain "$key"
   result=authentication_failed
   telynd_ssh_policy ask "$key"
-  ssh-copy-id -i "$key.pub" "${telynd_ssh_options[@]}" "$target"
+  # Only fixed product code is a remote command. Key text travels on stdin;
+  # no filename or key content is ever parsed as a shell command.
+  remote_command="exec /bin/sh -c '$(sed "s/'/'\\\\''/g" "$resources/authorise-remote.sh")'"
+  printf '%s\n' "$public_key" | ssh -T "${telynd_ssh_options[@]}" "$target" "$remote_command"
   telynd_ssh_policy yes "$key"
   result=verification_unavailable
   ssh "${telynd_ssh_options[@]}" -o BatchMode=yes -o StrictHostKeyChecking=yes "$target" true

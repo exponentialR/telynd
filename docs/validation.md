@@ -6,8 +6,8 @@ users and does not establish usability timings or a live Google connection.
 
 ## Automated checks
 
-Local security-update results: 20 Swift tests passed; Python discovers 26 tests
-(25 passed and one flock test skipped on macOS). Linux runs all 26 and the
+Local security-update results: 20 Swift tests passed; Python discovers 28 tests
+(27 passed and one flock test skipped on macOS). Linux runs all 28 and the
 systemd integration.
 
 - Swift core tests cover connection-only and legacy models, strict supported
@@ -37,6 +37,19 @@ systemd integration.
   Swift and shell policy tests also pass paths containing spaces, quotes,
   backslashes, tabs and comment characters through the real offline SSH parser,
   checking that the selected identity is preserved.
+- Authorisation tests use real local key validation and offline OpenSSH option
+  parsing with filenames containing quotes, backslashes, spaces, command
+  substitutions and backticks. Key comments remain stdin data, and malformed,
+  multiple or oversized keys fail before SSH. The Keychain/transport adapters
+  do not contact real accounts. Mac CI runs these cases too.
+- `tests/linux-authorisation.sh` uses a disposable Linux account and actual
+  shell execution, key tools, file permissions and locks. It covers hostile
+  comments, existing restricted entries, missing final newlines, concurrent
+  retries and symlink/hardlink refusal. It also runs the actual Mac wrapper's
+  fixed remote command through a local transport adapter into that account.
+  This verifies the command/data boundary without a live SSH server or password.
+  It passed locally in a disposable Debian container with networking disabled
+  and no host-folder mounts; CI repeats it on Ubuntu.
 - Deterministic host-check state tests deliver superseded completions while a
   newer request is busy and after it has completed. They also cover returning
   to the original target, discarding the current request, retry and independent
@@ -100,6 +113,16 @@ settings start the guide; completed fixtures exercise relaunch. Do not publish
 real Chrome profile data or screenshots containing personal host details.
 
 ## Review corrections
+
+The dependency-level review found that the installed `ssh-copy-id` evaluated
+key filenames internally. A harmless isolated marker reproduced substitution
+before any network connection. Telynd now removes that dependency from
+authorisation: validated public-key text travels only on stdin to a fixed
+Linux installer command. Filenames are never inserted into remote commands,
+and the installer discards comments without evaluating them. It serialises
+updates, preserves existing restrictions and refuses unsafe destination types.
+The earlier stub-only setup tests could not establish this boundary; the new
+tests exercise real parsing and the real installer under a disposable account.
 
 A further pre-merge pass found unescaped `IdentityFile` configuration values
 and a late-completion race after target/key edits. Both Swift and shell policy

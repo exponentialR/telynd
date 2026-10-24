@@ -25,11 +25,25 @@ host identity needs investigation; do not bypass the warning or blindly delete
 a known-host record.
 
 **Authorise SSH access** is a separate, confirmed action. Terminal unlocks the
-key through SSH/macOS Keychain and uses `ssh-copy-id` to add the public key to
-the selected account. Linux login passwords are typed directly into SSH.
+key through SSH/macOS Keychain, validates a single public key with OpenSSH and
+sends it as data to a fixed Linux-side installer over SSH. Linux login passwords
+are typed directly into SSH. Telynd does not call `ssh-copy-id` or evaluate key
+filenames or comments as shell text.
 The selected key is then checked with a new non-interactive connection before
-authorisation is reported as ready. Repeating authorisation uses ssh-copy-id's
-existing-key check. This action does not install recovery.
+authorisation is reported as ready. Repeating authorisation recognises the key
+even when its existing entry has a different comment or access restrictions;
+it preserves that entry and never adds an unrestricted duplicate. New entries
+contain only the key type and public material. This action does not install
+recovery.
+
+This installation step requires Linux with `flock`, `stat`, `awk` and standard
+shell tools. A private `.ssh/.telynd-authorise.lock` serialises concurrent
+attempts. The installer uses a private `.ssh` directory and `authorized_keys`
+file, preserves unrelated entries, and refuses symlinked directories or
+symlinked/hardlinked files. A failed or interrupted attempt may have created
+these paths; return to Telynd and recheck readiness. Standard Ed25519, RSA,
+ECDSA and OpenSSH security-key public keys are supported; certificates and
+files containing authorised-key options require separate administrator setup.
 
 First-contact authorisation explicitly prompts for host-key trust even if the
 user's SSH configuration disables checking. Subsequent automated connections

@@ -43,3 +43,9 @@ In the same disposable environment, run
 ancestor guards against writable, non-root-owned and symlinked paths. macOS CI
 also validates the real ad-hoc app's signing transport without Apple secrets.
 Keep build execution out of the credentialed signing job.
+
+Run `sudo env TELYND_DISPOSABLE_LINUX=1 bash tests/linux-authorisation.sh` only
+on the same kind of disposable Linux environment. It creates/removes its own
+test account and exercises the actual public-key installer, including its
+command/data boundary, permissions, concurrent updates and restricted entries.
+Its transport and Keychain adapters do not establish live SSH authentication.
