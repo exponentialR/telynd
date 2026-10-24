@@ -1,4 +1,5 @@
 import XCTest
+import Darwin
 @testable import TelyndCore
 
 final class PlatformTests: XCTestCase {
@@ -88,5 +89,28 @@ final class PlatformTests: XCTestCase {
         }
         XCTAssertThrowsError(try LocalHostReport.parse(Data(repeating: 0, count: 32769), desktop: desktop, now: now))
         XCTAssertThrowsError(try LocalHostReport.parse(Data([0xff, 0xfe, 0x7b]), desktop: desktop, now: now))
+    }
+    func testReportFileReaderRejectsSpecialFilesAndLinksWithoutBlocking() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: false)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let file = dir.appendingPathComponent("report.json")
+        try Data("{}".utf8).write(to: file)
+        XCTAssertEqual(try LocalHostReport.read(from: file), Data("{}".utf8))
+        let link = dir.appendingPathComponent("link.json")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: file)
+        XCTAssertThrowsError(try LocalHostReport.read(from: link))
+        let pipe = dir.appendingPathComponent("pipe.json")
+        XCTAssertEqual(mkfifo(pipe.path, 0o600), 0)
+        let start = Date()
+        XCTAssertThrowsError(try LocalHostReport.read(from: pipe))
+        XCTAssertLessThan(Date().timeIntervalSince(start), 1)
+        XCTAssertThrowsError(try LocalHostReport.read(from: dir))
+    }
+    func testReportFileReaderEnforcesBoundBeforeLoading() throws {
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: file) }
+        try Data(repeating: 0, count: 32769).write(to: file)
+        XCTAssertThrowsError(try LocalHostReport.read(from: file))
     }
 }
