@@ -12,6 +12,7 @@ SOURCES = {
     'usr/lib/telynd-setup/prepare-ssh': ('linux-helper/prepare_ssh.py', 0o755),
     'usr/share/polkit-1/actions/org.telynd.setup.policy': ('linux-helper/org.telynd.setup.policy', 0o644),
     'usr/share/icons/hicolor/256x256/apps/telynd.png': ('assets/branding/telynd-app-icon.png', 0o644),
+    'usr/share/doc/telynd-setup/copyright': ('LICENSE', 0o644),
 }
 CONTROL = b'''Package: telynd-setup
 Version: 0.2.0
