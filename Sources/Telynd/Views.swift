@@ -256,31 +256,90 @@ struct DesktopEditor: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.dismiss) var dismiss
     @State var desktop: Desktop
-    @State private var sshVisible: Bool
-    @State private var recoveryExpanded = false
-    init(desktop: Desktop) { _desktop = State(initialValue: desktop); _sshVisible = State(initialValue: desktop.target != nil) }
+    private enum Step { case connection, recovery }
+    @State private var step = Step.connection
+    @State private var savedForRecovery: Desktop?
+    var isNew: Bool { !store.desktops.contains(where: { $0.id == desktop.id }) }
+    var canSave: Bool { desktop.valid && desktop.hasDirectConnection && store.profileReady(for: desktop) && !store.writeLocked }
+    func save(openRecovery: Bool) {
+        guard canSave, store.save(desktop) else { return }
+        if openRecovery {
+            // Replace this editor's contents after saving. A second sheet cannot
+            // race the dismissal of the first, and recovery gets the saved record.
+            savedForRecovery = store.desktops.first(where: { $0.id == desktop.id })
+        } else { dismiss() }
+    }
     var body: some View {
+        if let savedForRecovery { RecoverySheet(desktop: savedForRecovery) }
+        else {
         VStack(alignment: .leading, spacing: 20) {
-            Text("Computer details").font(.title2.bold())
-            ScrollView { VStack(alignment: .leading, spacing: 20) {
-            ComputerFields(desktop: $desktop)
+            Text(isNew ? "Add computer" : "Computer details").font(.title2.bold())
+            HStack(spacing: 12) {
+                Button("1. Connection") { step = .connection }
+                    .foregroundStyle(step == .connection ? Color.accentColor : Color.secondary)
+                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                Button("2. Recovery (optional)") { step = .recovery }
+                    .foregroundStyle(step == .recovery ? Color.accentColor : Color.secondary)
+            }.buttonStyle(.plain).font(.callout.weight(.medium))
             Divider()
-            DisclosureGroup("Optional recovery", isExpanded: $recoveryExpanded) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Picker("Operating system", selection: $desktop.hostPlatform) {
-                        ForEach(HostPlatform.allCases) { platform in Text(platform.label).tag(platform) }
-                    }
-                    Toggle("Configure SSH address", isOn: $sshVisible)
-                    if sshVisible {
-                        TextField("SSH address: user@hostname", text: Binding(get: { desktop.target ?? "" }, set: { desktop.target = $0.isEmpty ? nil : $0 }))
-                    }
-                    Text("Linux recovery uses SSH. Mac and Windows use host-local setup. Connection does not require recovery.").font(.caption).foregroundStyle(.secondary)
-                }.padding(.top, 12)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    if step == .connection { ComputerFields(desktop: $desktop) }
+                    else { RecoveryIntroduction(platform: $desktop.hostPlatform) }
+                }.frame(maxWidth: .infinity, alignment: .leading)
             }
-            }.frame(maxWidth: .infinity, alignment: .leading) }
             Divider()
-            HStack { Spacer(); Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction); Button("Save") { if !sshVisible { desktop.target = nil }; if store.save(desktop) { dismiss() } }.keyboardShortcut(.defaultAction).disabled(!desktop.valid || !desktop.hasDirectConnection || !store.profileReady(for: desktop) || store.writeLocked) }
-        }.padding(28).frame(width: 640, height: 560)
+            if step == .connection {
+                Text("Next: optional recovery, including guided SSH setup for Linux.").font(.caption).foregroundStyle(.secondary)
+            } else if !canSave {
+                Text("Complete the Connection step before saving or starting recovery setup.").font(.caption).foregroundStyle(.secondary)
+            }
+            HStack {
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                if step == .recovery { Button("Back") { step = .connection } }
+                Spacer()
+                if step == .connection {
+                    if !isNew { Button("Save") { save(openRecovery: false) }.disabled(!canSave) }
+                    Button("Continue to recovery") { step = .recovery }.buttonStyle(ConnectButton())
+                        .keyboardShortcut(.defaultAction).disabled(!canSave)
+                } else {
+                    Button(isNew ? "Save connection only" : "Save") { save(openRecovery: false) }.disabled(!canSave)
+                    Button(desktop.hostPlatform == .linux ? "Save & set up SSH…" : "Save & set up recovery…") { save(openRecovery: true) }
+                        .buttonStyle(ConnectButton()).keyboardShortcut(.defaultAction)
+                        .disabled(!canSave || desktop.hostPlatform == .unknown)
+                }
+            }
+        }.padding(28).frame(width: 640, height: 600)
+        }
+    }
+}
+struct RecoveryIntroduction: View {
+    @Binding var platform: HostPlatform
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Add a recovery route").font(.title3.weight(.semibold))
+            Text("If the Chrome Remote Desktop service fails, recovery can help restore access. You can set it up now or add it later from the computer’s options.").font(.callout).foregroundStyle(.secondary)
+            Picker("Remote operating system", selection: $platform) {
+                ForEach(HostPlatform.allCases) { item in Text(item.label).tag(item) }
+            }
+            if platform == .unknown {
+                Text("Choose the remote computer’s operating system to see its recovery steps. Linux uses SSH; Mac and Windows use setup on the remote computer.").font(.callout).foregroundStyle(.secondary)
+            } else if platform.usesSSHRecovery {
+                VStack(alignment: .leading, spacing: 14) {
+                    Label("Linux recovery uses SSH", systemImage: "terminal").font(.headline)
+                    Text("SSH gives this Mac another way to reach your Linux PC and set up its automatic recovery timer.").font(.callout).foregroundStyle(.secondary)
+                    Label("Enter the Linux login name and computer address.", systemImage: "1.circle")
+                    Label("Let Telynd guide you through creating or reusing a key.", systemImage: "2.circle")
+                    Label("Check access, then approve the recovery timer.", systemImage: "3.circle")
+                    Text("New to SSH? The next screen shows where to find those details and how to enable SSH on Linux. Passwords and administrator approval stay in Terminal.").font(.caption).foregroundStyle(.secondary)
+                }.font(.callout).padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
+            } else {
+                Label(platform == .macos ? "Mac recovery runs in a signed-in desktop session." : "Windows recovery can restart a crashed service.", systemImage: "arrow.clockwise").font(.headline)
+                Text("No SSH setup is needed. Telynd helps you export a recovery kit to run on that computer. These kits are development previews awaiting real-host validation and distribution signing.").font(.callout).foregroundStyle(.secondary)
+            }
+            Text("Recovery cannot wake a sleeping computer, repair its network or renew Google sign-in. Connecting works without recovery.").font(.caption).foregroundStyle(.secondary)
+        }
     }
 }
 struct ComputerFields: View {
@@ -443,9 +502,10 @@ struct OnboardingGuide: View {
                         }
                     } else { Text("No computer is saved for this guide. Go back to add one.") }
                 case .recovery:
-                    Text("Recovery setup depends on the remote computer. Linux uses SSH and a host timer. Mac uses a host-local desktop agent. Windows uses native crash recovery. Each setup explains its permissions and limits.")
-                    Text("Recovery cannot fix a sleeping PC, network failure or expired Google authorisation. You can finish now and add recovery from the computer’s card later.").foregroundStyle(.secondary)
-                    Button("Set up optional recovery") { finish(recovery: true) }.disabled(chosen == nil)
+                    RecoveryIntroduction(platform: $draft.hostPlatform)
+                    Button(draft.hostPlatform == .linux ? "Save & set up SSH…" : "Save & set up recovery…") {
+                        if saveDraft() { finish(recovery: true) }
+                    }.buttonStyle(ConnectButton()).disabled(chosen == nil || draft.hostPlatform == .unknown)
                 case .finished:
                     Text("Your computers and their browser accounts are saved. Choose Connect, or open a computer’s options for recovery settings.")
                 }
@@ -460,7 +520,9 @@ struct OnboardingGuide: View {
                 case .welcome: Button("Get started") { advance(.computer) }.buttonStyle(PrimaryButton()).keyboardShortcut(.defaultAction)
                 case .profile, .computer: Button("Save and continue") { if saveDraft() { advance(.connect) } }.buttonStyle(PrimaryButton()).keyboardShortcut(.defaultAction).disabled(!draft.valid || !draft.hasDirectConnection || !store.profileReady(for: draft))
                 case .connect: Button("Continue after opening Chrome") { advance(.recovery) }.keyboardShortcut(.defaultAction).disabled(chosen?.lastLaunch == nil || chosen?.hasDirectConnection != true || chosen.map { !store.profileReady(for: $0) } != false)
-                case .recovery: Button("Finish with connection-only access") { finish() }.buttonStyle(PrimaryButton()).keyboardShortcut(.defaultAction)
+                case .recovery: Button("Finish with connection-only access") {
+                    if chosen == nil || saveDraft() { finish() }
+                }.buttonStyle(PrimaryButton()).keyboardShortcut(.defaultAction)
                 case .finished: Button("Done") { store.showGuide = false }.buttonStyle(PrimaryButton())
                 }
             }

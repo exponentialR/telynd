@@ -1,5 +1,30 @@
 # Onboarding validation record
 
+## Visible recovery during Add computer, 24 October 2026
+
+The Add computer editor now has two visible steps: **Connection → Recovery
+(optional)**. The connection page and its fixed footer announce the recovery
+step. The recovery page shows the remote operating-system selector and explains
+Linux SSH access, key setup and timer approval. **Save & set up SSH…** saves the
+connection, then replaces the editor contents with the existing guided recovery
+screen. It does not launch Terminal, authorise keys or install a timer. **Save
+connection only** saves without opening recovery. Existing entries retain a quick
+Save action and keep their SSH settings. The first-run guide uses the same
+platform-specific explanation and saves the chosen OS when finishing.
+
+The 63 Swift tests passed. Isolated native UI checks verified the recovery step
+is discoverable before completing a connection; saving remains disabled until
+the connection is valid; Linux selection survives Back; and Save & set up SSH
+immediately opens the username/address and key/recovery steps for the saved
+record. Fixture read-back confirmed the selected OS and browser account were
+saved without creating an SSH destination or key. Editing an existing fixture
+and taking the normal Save path returned to the dashboard and preserved its
+SSH destination, identity path and account. No real SSH setup or host mutation
+was performed. The synthetic screenshot below shows the complete recovery
+explanation and both save choices without scrolling.
+
+![Optional recovery during Add computer](images/add-computer-recovery.png)
+
 ## Guided Chrome computer selection, 24 October 2026
 
 **Choose computer in Chrome** now opens a new window in the selected profile,

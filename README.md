@@ -104,6 +104,12 @@ Removed entries are kept privately in preferences for Undo and **Help → Recent
 removed computers**. Removal does not unregister the Google host, revoke SSH
 keys or uninstall host recovery. Those changes have their own explicit actions.
 
+Adding a computer has two visible steps: **Connection → Recovery (optional)**.
+The recovery step explains the selected operating system's route. For Linux,
+**Save & set up SSH…** opens the guided setup immediately after saving. **Save
+connection only** skips recovery. Editing retains saved SSH details, and saving
+without opening recovery never disables an existing host timer.
+
 Linux recovery setup guides the user through the address, one combined key
 creation/authorisation action, and separate recovery installation. SSH must
 already be enabled and reachable; first trust and passwords stay in Terminal.

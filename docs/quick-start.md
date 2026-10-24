@@ -22,18 +22,26 @@ before normal download-and-open distribution.
    prompted. Telynd opens Google's list in a new window using the chosen profile.
    Select the intended computer there. Telynd detects its link automatically in
    that setup tab, including while Chrome is in the background. Return to Telynd,
-   choose **Use this computer**, review the browser account and **Save**. No
+   choose **Use this computer**, review the browser account and **Continue to recovery**. No
    copying or second capture click is needed. Detection ends after five minutes,
    cancellation, closing setup or changing the draft. Keep the setup tab in its
    original window. The address does not identify the Google account active in
    the tab; several Google web accounts within one Chrome profile still share
    browsing state. Google handles any sign-in and PIN prompts.
-4. Choose **Connect** on the computer's row. Telynd opens its direct link using
+4. The **Recovery (optional)** step is visible during Add computer. Choose the
+   remote operating system. For Linux, **Save & set up SSH…** saves the computer
+   and opens the guided login/address, key and recovery-timer setup. Its help
+   explains how to enable SSH and find the required details. Mac and Windows
+   open their host-local recovery-kit setup. **Save connection only** finishes
+   adding the computer without configuring recovery; you can add it later.
+5. Choose **Connect** on the computer's row. Telynd opens its direct link using
    its saved Chrome profile, without a global account switch. Complete Google's
    connection prompts, including its PIN if requested. Telynd records the
    launch; only you can confirm that the remote session connected.
-5. Finish with **connection-only access**, or start optional recovery for the
-   selected operating system. Add more computers with their own browser accounts.
+
+The setup guide also offers recovery after the first Chrome launch. Add more
+computers with their own browser accounts. Editing an existing computer retains
+its saved SSH settings; **Save** does not disable or uninstall recovery.
 
 Saved computers and their browser accounts survive relaunch. Search by computer
 name or account. The row's **…** menu offers **Edit computer…**, **Details &
