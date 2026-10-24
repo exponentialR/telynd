@@ -58,6 +58,15 @@ try {
     $installed=& $script -Action install -DesktopID $id | ConvertFrom-Json
     Assert ($installed.installation -eq 'verified') 'Install read-back failed'
     $null=& $script -Action install -DesktopID $id
+    # A ledger writable by ordinary users must be refused before using it.
+    $ledgerPath=Join-Path $root 'owned/chromoting.json'
+    $originalAcl=Get-Acl -LiteralPath $ledgerPath
+    $unsafeAcl=Get-Acl -LiteralPath $ledgerPath
+    $unsafeAcl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule(([Security.Principal.SecurityIdentifier]'S-1-5-11'),'Write','Allow')))
+    Set-Acl -LiteralPath $ledgerPath -AclObject $unsafeAcl
+    $refused=$false; try { $null=& $script -Action check -DesktopID $id } catch { $refused=$true }
+    Assert $refused 'Writable ledger was accepted'
+    Set-Acl -LiteralPath $ledgerPath -AclObject $originalAcl
     $p=[Telynd.ServicePolicy]::Read($service)
     Assert ($p.Actions.Count -eq 3 -and $p.Actions[2].Type -eq 0) 'Retries not bounded'
     # Third-party drift must never be overwritten, including on uninstall.

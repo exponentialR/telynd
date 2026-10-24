@@ -21,11 +21,11 @@ function Assert-Administrator {
         throw 'Open PowerShell as administrator for this action. No changes made.'
     }
 }
-function Assert-ProtectedPath([string]$Path) {
+function Assert-ProtectedPath([string]$Path, [switch]$ParentOnly) {
     # Follow no reparse points. Only Administrators, SYSTEM and TrustedInstaller
     # may own a path or receive write access anywhere in its ancestry.
     $item = Get-Item -LiteralPath $Path -Force
-    $leaf = $true
+    $leaf = -not $ParentOnly
     while ($null -ne $item) {
         if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Reparse points are not accepted.' }
         $acl = Get-Acl -LiteralPath $item.FullName
@@ -68,10 +68,16 @@ function Get-ChromeHost {
     }
     return $service
 }
-function Policy-JSON($Policy) { return ($Policy | ConvertTo-Json -Depth 8 -Compress) }
+function Policy-JSON($Policy) {
+    # SCM normalises absent/empty command strings. Compare the semantic policy
+    # with fixed field order across native objects and deserialised ledgers.
+    return ([ordered]@{Reset=[uint32]$Policy.Reset;Reboot=[string]$Policy.Reboot;Command=[string]$Policy.Command;Actions=@($Policy.Actions | ForEach-Object { [ordered]@{Type=[int]$_.Type;Delay=[uint32]$_.Delay} })} | ConvertTo-Json -Depth 8 -Compress)
+}
 function Convert-Policy($Value) {
     $p = New-Object Telynd.FailurePolicy
-    $p.Reset = [uint32]$Value.Reset; $p.Reboot = $Value.Reboot; $p.Command = $Value.Command
+    $p.Reset = [uint32]$Value.Reset
+    if ($null -ne $Value.Reboot) { $p.Reboot = [string]$Value.Reboot }
+    if ($null -ne $Value.Command) { $p.Command = [string]$Value.Command }
     $p.Actions = @($Value.Actions | ForEach-Object { $a=New-Object Telynd.FailureAction; $a.Type=[int]$_.Type; $a.Delay=[uint32]$_.Delay; $a })
     return $p
 }
@@ -100,7 +106,7 @@ try {
     if ($Action -ne 'check') {
         Assert-Administrator
         if (-not (Test-Path -LiteralPath $Store)) {
-            Assert-ProtectedPath (Split-Path $Store)
+            Assert-ProtectedPath (Split-Path $Store) -ParentOnly
             # CreateDirectory with its final ACL avoids a writable creation window.
             $acl = New-Object Security.AccessControl.DirectorySecurity
             $acl.SetAccessRuleProtection($true,$false); $acl.SetOwner($Admins)
