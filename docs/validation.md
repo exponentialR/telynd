@@ -1,5 +1,149 @@
 # Onboarding validation record
 
+## First registered Linux-host recovery, 24 October 2026
+
+This pilot recovered an already-failed Google Chrome Remote Desktop service on
+a personal Linux host. It is evidence for the tested configuration and initial
+reconnection, not completion of the full acceptance criteria in #13.
+
+| Component | Recorded configuration |
+| --- | --- |
+| Telynd client | Locally built development app, version 0.2.0/build 2, source `8ed2fea62a86a34083d9221602aaea845ceb3144` |
+| Controlling computer | macOS 26.4.1, ARM64 |
+| Remote host | Ubuntu 24.04.5 LTS, Linux 6.8.0-147-generic, x86_64 |
+| Chrome Remote Desktop Linux package | 144.0.7559.29 |
+| Recovery component source | Bundled `scripts/setup-remote.sh` at the same source revision; SHA-256 `fd5d1604881b122c1e7a4ffdf488f2d828dc44ef5fcd33236f1577ac8d4a22dc` |
+
+Before installation, strict non-interactive SSH access worked, Google's service
+was loaded and enabled but failed, and Telynd recovery was missing. No deliberate
+outage was introduced. Existing SSH authorisation was reused; first-time key
+creation/authorisation was not exercised in this pilot.
+
+The fresh app's onboarding selected the intended existing Chrome profile, saved
+a Linux computer, opened Google's device picker and continued to optional
+recovery without claiming a successful session. Telynd's readiness check
+verified SSH. Its **Install recovery** action explained the helpers, narrow
+password-free permissions and two-minute timer. The user approved installation
+and entered the remote administrator password in Terminal. The installer receipt
+reported installed, and a subsequent app/SSH check verified the root-side
+manifest, enabled/active timer and enabled/active Google service without an
+account-password prompt.
+
+The recovery service completed successfully (exit status 0) at **16:35:18 BST**;
+Google's service entered its active state at the same timestamp. Google then
+provided a connectable device entry and its session UI reported **Connected**.
+The user subsequently confirmed the result. Service activation and Google
+connection were observed separately; no credentials or session contents are
+included in this record.
+
+A later timer execution at **16:37:34 BST** also returned success while Google's
+active-enter timestamp remained **16:35:18 BST**. This observes an active service
+being left running across that tick; it does not establish every concurrent or
+active-session preservation case. The checked final state was Google enabled
+and active, with Telynd's timer active. The Mac app remained open.
+
+### Controlled interruption with the Mac client closed
+
+The user separately approved a brief interruption of the same host. Strict SSH
+access, the verified recovery installation and its enabled/active timer were
+checked first. Google's service was active and enabled, with native systemd
+`Restart=no`. Telynd was quit and process absence was verified before signalling
+the Google service.
+
+At **16:48:02 BST**, the test sent SIGTERM to the verified per-account Google
+service main process using a Linux pidfd (a stable process handle that avoids
+signalling a reused PID). This was a process-termination test, not a
+`systemctl stop` or change to Google's enablement/configuration. The unit was
+first observed inactive **2.555 seconds** after the signal.
+
+The first observation of the service active again was **40.825 seconds** after
+the signal, measured with the remote monotonic clock and 0.5-second polling.
+The recovery timer's trigger and Google's active-enter timestamp both reported
+**16:48:42 BST**. The installed helper, rather than Google's native restart
+policy or the closed Mac app, provided automatic recovery. The fixed recovery
+helper was available as the approved fallback but was not needed. No additional
+account-password prompt was encountered.
+
+Final host-side verification reported Google enabled/active, the installation
+verified and the recovery timer enabled/active. Google's device list was
+refreshed and a new connection reported **Connected** in the session UI. Telynd
+was still absent from the Mac's process list through that reconnection check;
+it was reopened only afterwards. Browser interaction was not an instrumented
+measurement of Google's earliest availability or end-to-end reconnect latency.
+The 40.825-second result is the observed service-recovery time for this timer
+phase, not a promised recovery duration.
+
+### Intentional disablement, including an incomplete first attempt
+
+At **17:03:20 BST** on the same day, a separately approved test disabled and
+stopped Google's service. The installed recovery helper refused to start it
+with exit status 3, reporting that it was not enabled. A host-local transient
+timer was armed beforehand to restore Google's original enabled/running state
+after four minutes if the test lost control.
+
+The test harness then failed while interpreting systemd's human-readable
+`LastTriggerUSecMonotonic` duration as an integer. Its cleanup restored Google
+to enabled/active at **17:04:28 BST**. A second harness error reported the
+safeguard cleanup as failed because its never-started transient service was
+absent. Independent SSH read-back subsequently verified Google enabled/active,
+the installed recovery manifest verified, Telynd's timer enabled/active and
+both transient safeguard units absent/inactive. This attempt establishes the
+explicit helper refusal, but is not recorded as a passing end-to-end
+intentional-disablement test.
+
+The private harness was corrected to query typed D-Bus microsecond values and
+accept an absent transient service during cleanup. Read-only queries against
+the host and local regression checks passed before a second live run.
+
+The corrected run disabled and stopped Google at **17:07:27 BST**. The direct
+helper again refused with exit status 3. Telynd's real timer subsequently
+triggered at **17:08:39 BST**; its recovery service also exited with status 3,
+and Google remained inactive and disabled. The completed timer refusal was
+observed **72.603 seconds** after the direct helper check. This measures the
+wait for that timer phase, not a recovery duration.
+
+The test reported success and restored Google to enabled/active at
+**17:08:40 BST**, then cancelled its independent restoration safeguard. The
+test exited 0. Subsequent strict SSH verification confirmed the recovery
+installation verified, Google enabled/active, Telynd's timer enabled/active and
+both transient safeguard units absent/inactive. Google screen reconnection was
+checked separately after the lifecycle tests below.
+
+### Recovery lifecycle through the Mac app
+
+The app's **Disable timer** action opened its normal confirmation and Terminal
+flow. The user completed the remote administrator prompt. The receipt reported
+`disabled`; independent SSH checks verified the Telynd installation remained
+valid and its timer was inactive/disabled. Google's service stayed
+enabled/active, with the same monotonic active-enter timestamp as before the
+action. The app's refreshed readiness report also showed the inactive timer.
+
+The app's **Uninstall recovery** action used the same confirmation/Terminal
+flow and reported `uninstalled`. A new strict SSH connection verified both
+helpers, both systemd unit files, the sudoers entry and the installation ledger
+were absent. The recovery units were not loaded. Google remained
+enabled/active with its original active-enter timestamp; SSH continued to work.
+
+The app's **Install recovery** action then restored the same source version.
+Its receipt reported `installed`; the root-side manifest verified, and the
+timer was enabled/active. Both fixed helpers ran through `sudo -n` without an
+account-password prompt. The recovery helper reported the Google service was
+already running and needed no restart. Google's active-enter timestamp stayed
+unchanged across all three lifecycle actions. The refreshed app dashboard
+reported recovery enabled. This tests removal/reinstallation of the same
+version, not an upgrade to a different release.
+
+Finally, Telynd opened Google's device picker in the intended Chrome profile.
+A new connection to the same host completed and Google's session UI reported
+**Connected**. This is a separate screen-connection observation after the
+disablement and lifecycle tests; no end-to-end reconnection latency is claimed.
+
+**Remaining evidence:** a different-version update remains untested. Existing
+SSH authorisation was reused; first-time key authorisation remains untested. These were guided
+developer-build pilots, not an independent novice study or a signed
+browser-download test. Mac and Windows Google-host pilots remain #18; signed
+Mac client distribution remains #11.
+
 ## Cross-platform recovery implementation, 24 October 2026
 
 The #14 work extends the existing Mac client with platform selection and Mac/
@@ -84,6 +228,9 @@ signed kit installation are unverified. Imported snapshots do not authenticate
 the host or current state and cannot authorise remote mutations.
 
 ---
+
+The following sections record the earlier fixture-based onboarding verification;
+the registered Linux-host pilot above is separate.
 
 Validation date: 24 October 2026. This is engineering verification by the
 implementer, including self-review. It is not a study of independent novice
