@@ -49,6 +49,8 @@ WantedBy=multi-user.target
 UNIT
 systemctl daemon-reload
 admin_on
+# A clean runner need not have this directory until its first installation.
+mkdir -p /usr/local/libexec
 # Unknown files must never be claimed or replaced.
 printf 'foreign\n' > "$helper"
 if as_user "$root/scripts/setup-remote.sh"; then echo 'Foreign file accepted'; exit 1; fi

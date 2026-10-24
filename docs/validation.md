@@ -35,7 +35,9 @@ interrupted upgrade with mixed old/new components and refusal of content drift, 
 recovery decision tests including concurrency, and installation/readiness
 read-back. It had no host-folder mounts. This validates real systemd/sudoers
 behaviour against the synthetic service, not Google's registered host binary.
-GitHub Checks repeats the integration on an Ubuntu runner.
+GitHub Checks repeats the integration on an Ubuntu runner. The first CI run
+found a test-fixture assumption that `/usr/local/libexec` already existed; the
+fixture now prepares that directory before placing its synthetic foreign file.
 
 ## Native Mac journey
 
