@@ -28,6 +28,8 @@ public struct ReadinessReport: Equatable {
             if values["service"] == "missing" { return "Chrome host service not found" }
             if values["chrome_enabled"] == "disabled" { return "Chrome host intentionally disabled" }
             if values["installation"] == "drift" || values["installation"] == "partial" { return "Recovery setup needs attention" }
+            if values["installation"] == "disabled" { return "Recovery disabled · imported" }
+            if values["installation"] == "missing" { return "Recovery not configured · imported" }
             if recoveryEnabled { return values["recovery_scope"] == "crash-only" ? "Crash recovery configured · imported" : "Recovery configured · imported" }
             return "Host recovery not verified · imported"
         }

@@ -49,7 +49,11 @@ class MacRecoveryTest(unittest.TestCase):
 set -eu
 root=$TELYND_FIXTURE_ROOT
 case "$1" in
- print-disabled) if [ -f "$root/disabled" ]; then echo '"org.chromium.chromoting" => true'; else echo '{}'; fi;;
+ print-disabled)
+   if [ -f "$root/disabled" ]; then echo '"org.chromium.chromoting" => true'
+   elif [ -f "$root/disabled-modern" ]; then echo '"org.chromium.chromoting" => disabled'
+   elif [ -f "$root/disabled-unknown" ]; then echo '"org.chromium.chromoting" => unknown'
+   else echo '{}'; fi;;
  print)
    if [[ "$2" == */com.telynd.recovery ]]; then
      [ -f "$root/loaded" ] || exit 1
@@ -97,12 +101,21 @@ esac
             (self.root/'service').write_text(state)
             self.assertEqual(self.run_mode('tick')['outcome'],'unchanged')
         (self.root/'service').write_text('stopped')
-        for flag in ['disabled','no-session']:
+        for flag in ['disabled','disabled-modern','disabled-unknown','no-session']:
             p=self.root/flag; p.touch()
             self.assertEqual(self.run_mode('tick')['outcome'],'unchanged'); p.unlink()
         self.marker.unlink()
         self.assertEqual(self.run_mode('tick')['outcome'],'unchanged')
         self.assertFalse((self.root/'starts').exists())
+
+    def test_removal_completes_even_when_google_signature_has_broken(self):
+        self.run_mode('install')
+        (self.root/'bad-signature').touch()
+        self.assertEqual(self.run_mode('disable')['outcome'],'disabled')
+        report=self.run_mode('uninstall')
+        self.assertEqual(report['outcome'],'uninstalled')
+        self.assertEqual(report['service'],'unknown')
+        self.assertTrue(self.marker.exists())
 
     def test_crash_loop_is_bounded_and_bad_retry_state_fails_closed(self):
         self.run_mode('install'); (self.root/'keep-stopped').touch()

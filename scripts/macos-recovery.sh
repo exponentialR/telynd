@@ -95,7 +95,12 @@ inspect_google() {
     local plist_disabled
     plist_disabled=$(/usr/libexec/PlistBuddy -c 'Print :Disabled' "$google_plist" 2>/dev/null || true)
     # Do not override either Google's explicit marker or launchd disablement.
-    if [ "$plist_disabled" != true ] && ! printf '%s\n' "$disabled" | grep -Eq '"org.chromium.chromoting"[[:space:]]*=>[[:space:]]*true'; then enablement=enabled; fi
+    # Newer launchctl prints enabled/disabled; older releases print false/true.
+    # An unrecognised explicit value must not be interpreted as enabled.
+    if [ "$plist_disabled" != true ]; then
+      if ! printf '%s\n' "$disabled" | grep -E '"org[.]chromium[.]chromoting"[[:space:]]*=>' >/dev/null ||
+         printf '%s\n' "$disabled" | grep -E '^[[:space:]]*"org[.]chromium[.]chromoting"[[:space:]]*=>[[:space:]]*(false|enabled)[[:space:]]*$' >/dev/null; then enablement=enabled; fi
+    fi
   fi
   local state
   if state=$(launchctl print "$target" 2>/dev/null); then
@@ -190,4 +195,10 @@ else
     fi
   fi
 fi
-inspect_google; report
+# Removal does not depend on Google's installation remaining healthy. Do not
+# turn a completed removal into an apparent failure during an unrelated check.
+case "$mode" in
+  disable|uninstall) service=unknown; enablement=unknown; recovery=unavailable;;
+  *) inspect_google;;
+esac
+report

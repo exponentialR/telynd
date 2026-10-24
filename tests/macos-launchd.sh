@@ -43,6 +43,7 @@ s=s.replace('/Library/LaunchAgents/org.chromium.chromoting.plist',str(root/'goog
 s=s.replace('/Library/PrivilegedHelperTools/ChromeRemoteDesktopHost.app',str(root/'Google.app'))
 s=s.replace('/Library/PrivilegedHelperTools/org.chromium.chromoting.me2me_enabled',str(root/'enabled'))
 s=s.replace('org.chromium.chromoting',os.environ['TELYND_NATIVE_GOOGLE_LABEL'])
+s=s.replace('org[.]chromium[.]chromoting',os.environ['TELYND_NATIVE_GOOGLE_LABEL'].replace('.','[.]'))
 s=s.replace('com.telynd.recovery',os.environ['TELYND_NATIVE_RECOVERY_LABEL'])
 start=s.index('root_tree() {');end=s.index('inspect_google() {',start)
 s=s[:start]+'root_tree() { return 0; }\n'+s[end:]
@@ -63,8 +64,14 @@ for _ in 1 2 3 4 5; do
 done
 printf '%s\n' "$state" | check_report service running
 bash "$root/kit.sh" recover "$id" | check_report outcome unchanged
+# Native disabled state must stay disabled even when its loaded job exits.
+launchctl disable "$domain/$google_label"
+launchctl kill SIGTERM "$domain/$google_label"
+sleep 1
+bash "$root/kit.sh" recover "$id" | check_report outcome unchanged
+bash "$root/kit.sh" check "$id" | check_report enablement disabled
 bash "$root/kit.sh" disable "$id" | check_report installation disabled
-launchctl print-disabled "$domain" | grep -F "\"$recovery_label\" => true"
+launchctl print-disabled "$domain" | grep -F "\"$recovery_label\"" | grep -E '=>[[:space:]]*(true|disabled)'
 bash "$root/kit.sh" uninstall "$id" | check_report installation missing
 launchctl print "$domain/$google_label" >/dev/null
 echo 'Native launchd install/start/active preservation/persistent disable/removal passed against a synthetic signed host.'

@@ -59,7 +59,7 @@ final class PlatformTests: XCTestCase {
         XCTAssertTrue(report.recoveryEnabled); XCTAssertTrue(report.imported)
         XCTAssertNil(report.values["ssh"]); XCTAssertNil(report.values["timer"])
         XCTAssertEqual(report.configurationLabel(at: now), "Crash recovery configured · imported")
-        for (update, label) in [(["enablement": "disabled"], "Chrome host intentionally disabled"), (["installation": "drift"], "Recovery setup needs attention"), (["service": "missing"], "Chrome host service not found"), (["permissions": "needs-attention"], "Host permissions need attention")] {
+        for (update, label) in [(["enablement": "disabled"], "Chrome host intentionally disabled"), (["installation": "drift"], "Recovery setup needs attention"), (["installation": "disabled"], "Recovery disabled · imported"), (["installation": "missing"], "Recovery not configured · imported"), (["service": "missing"], "Chrome host service not found"), (["permissions": "needs-attention"], "Host permissions need attention")] {
             let other = try LocalHostReport.parse(fixture(item, update), desktop: item, now: now).readiness
             XCTAssertEqual(other.configurationLabel(at: now), label)
         }
@@ -76,5 +76,17 @@ final class PlatformTests: XCTestCase {
             XCTAssertFalse(instructions.contains(desktop.name)); XCTAssertFalse(instructions.contains("ExecutionPolicy Bypass"))
             XCTAssertTrue(instructions.contains("not authenticated"))
         }
+    }
+    func testPowerShellUTF16AndUTF8BOMReportsAreAcceptedWithinBounds() throws {
+        let desktop = Desktop(name: "Fixture", hostPlatform: .windows)
+        let json = try fixture(desktop)
+        let text = try XCTUnwrap(String(data: json, encoding: .utf8))
+        let expected = try LocalHostReport.parse(json, desktop: desktop, now: now)
+        for (bom, encoding) in [(Data([0xff, 0xfe]), String.Encoding.utf16LittleEndian), (Data([0xfe, 0xff]), .utf16BigEndian), (Data([0xef, 0xbb, 0xbf]), .utf8)] {
+            let encoded = try XCTUnwrap(text.data(using: encoding))
+            XCTAssertEqual(try LocalHostReport.parse(bom + encoded, desktop: desktop, now: now), expected)
+        }
+        XCTAssertThrowsError(try LocalHostReport.parse(Data(repeating: 0, count: 32769), desktop: desktop, now: now))
+        XCTAssertThrowsError(try LocalHostReport.parse(Data([0xff, 0xfe, 0x7b]), desktop: desktop, now: now))
     }
 }
