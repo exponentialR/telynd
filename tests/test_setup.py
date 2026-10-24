@@ -15,13 +15,14 @@ class SetupTest(unittest.TestCase):
         root = Path(folder.name)
         key = root / 'test key'
         if existing:
-            key.write_text('synthetic-private-key'); Path(str(key)+'.pub').write_text('synthetic-public-key')
+            key.write_text('synthetic-private-key'); Path(str(key)+'.pub').write_text('synthetic-type synthetic-material')
         actions = root / 'actions'
         stub = '''#!/bin/bash
 set -eu
 name=${0##*/}
 printf '%s\\n' "$name $*" >> "$TEST_ACTIONS"
 if [ "$name" = "$TEST_FAIL" ]; then exit "$TEST_FAIL_CODE"; fi
+if [ "$name" = ssh-keygen ] && [ "${1:-}" = -y ]; then printf 'synthetic-type synthetic-material\\n'; exit 0; fi
 if [ "$name" = ssh ]; then
   phase=ssh-verify
   [[ "$*" != *'exec /bin/sh -c'* ]] || phase=ssh-install

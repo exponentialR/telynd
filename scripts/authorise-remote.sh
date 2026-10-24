@@ -19,7 +19,9 @@ case "$algorithm" in
   *) fail 'Unsupported public-key type or authorised_keys options.';;
 esac
 case "$material" in ''|*[!A-Za-z0-9+/=]*) fail 'Invalid public-key material.';; esac
-command -v flock >/dev/null || fail 'Linux flock is required for SSH authorisation.'
+for tool in flock stat awk tail id mkdir chmod; do
+  command -v "$tool" >/dev/null || fail "Missing SSH authorisation tool: $tool"
+done
 cd
 owner=$(id -u)
 [ ! -L .ssh ] || fail 'Refusing a symlinked .ssh directory.'
@@ -36,22 +38,30 @@ safe_file "$lock" || fail 'Unsafe authorisation lock.'
 chmod 600 "$lock"
 flock -w 10 9 || fail 'Another SSH authorisation is running. Retry later.'
 authorised=.ssh/authorized_keys
+lookup=absent
+separator=no
 if [ -e "$authorised" ] || [ -L "$authorised" ]; then
   safe_file "$authorised" || fail 'Refusing an unsafe authorized_keys file.'
-else
-  (set -C; : > "$authorised")
-fi
-chmod 600 "$authorised"
-# Match key identity even when an existing line has a comment or restrictions.
-# Never append an unrestricted duplicate of an already restricted key.
-if awk -v algorithm="$algorithm" -v material="$material" '
+  # Match identity even on restricted entries. Successful absence is explicit;
+  # an execution/read error must never become permission to append a key.
+  lookup=$(awk -v algorithm="$algorithm" -v material="$material" '
   /^[ \t]*#/ { next }
   { for (i = 1; i < NF; i++) if ($i == algorithm && $(i + 1) == material) found = 1 }
-  END { exit !found }
-' "$authorised"; then
+  END { print found ? "present" : "absent" }
+  ' "$authorised") || fail 'Could not check existing authorised keys. Nothing appended.'
+  case "$lookup" in present|absent) ;; *) fail 'Unexpected key lookup result. Nothing appended.';; esac
+  if [ "$lookup" = absent ] && [ -s "$authorised" ]; then
+    last_byte=$(tail -c 1 "$authorised") || fail 'Could not read the final key-file byte. Nothing appended.'
+    [ -z "$last_byte" ] || separator=yes
+  fi
+fi
+if [ "$lookup" = present ]; then
+  chmod 600 "$authorised"
   echo 'Public key already present; existing restrictions preserved.'
 else
-  if [ -s "$authorised" ] && [ -n "$(tail -c 1 "$authorised")" ]; then printf '\n' >> "$authorised"; fi
+  if [ ! -e "$authorised" ]; then (set -C; : > "$authorised"); fi
+  chmod 600 "$authorised"
+  [ "$separator" = no ] || printf '\n' >> "$authorised"
   printf '%s %s\n' "$algorithm" "$material" >> "$authorised"
   echo 'Public key added.'
 fi

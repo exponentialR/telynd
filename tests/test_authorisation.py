@@ -22,15 +22,15 @@ class AuthorisationTest(unittest.TestCase):
         commands = root/'commands'; commands.mkdir()
         (commands/'ssh').write_text(f'#!{sys.executable}\n' + '''import json, os, pathlib, subprocess, sys
 args = sys.argv[1:]
-resolved = subprocess.run([os.environ['TEST_REAL_SSH'], '-G', '-F', '/dev/null', *args], capture_output=True, text=True)
+resolved = subprocess.run([os.environ['TEST_REAL_SSH'], '-G', '-F', os.environ.get('TEST_SSH_CONFIG', '/dev/null'), *args], capture_output=True, text=True)
 if resolved.returncode: sys.stderr.write(resolved.stderr); sys.exit(resolved.returncode)
 record = {'args': args, 'input': sys.stdin.read(), 'configuration': resolved.stdout}
 with pathlib.Path(os.environ['TEST_LOG']).open('a') as log: log.write(json.dumps(record) + '\\n')
 ''')
-        (commands/'ssh-add').write_text('#!/bin/sh\nexit 0\n')
+        (commands/'ssh-add').write_text('#!/bin/sh\nprintf "agent-called\\n" >> "$TEST_AGENT_LOG"\n')
         (commands/'ssh-copy-id').write_text('#!/bin/sh\necho Unsafe-helper-invoked >&2\nexit 99\n')
         for command in commands.iterdir(): command.chmod(0o700)
-        env = dict(os.environ, PATH=str(commands)+os.pathsep+os.environ['PATH'], TEST_REAL_SSH=shutil.which('ssh'), TEST_LOG=str(root/'calls'))
+        env = dict(os.environ, PATH=str(commands)+os.pathsep+os.environ['PATH'], TEST_REAL_SSH=shutil.which('ssh'), TEST_LOG=str(root/'calls'), TEST_AGENT_LOG=str(root/'agent-calls'))
         return root, seed, env
 
     def run_setup(self, root, key, env):
@@ -71,3 +71,48 @@ with pathlib.Path(os.environ['TEST_LOG']).open('a') as log: log.write(json.dumps
                 self.assertNotEqual(result.returncode, 0)
                 self.assertFalse((root/'calls').exists())
                 self.assertNotIn('result=ssh_ready', (root/'receipt').read_text())
+
+    def test_mismatched_public_key_fails_before_agent_or_ssh(self):
+        root, key, env = self.fixture()
+        other = root/'other'
+        subprocess.run(['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-C', 'other@example.test', '-f', str(other)], check=True, capture_output=True)
+        Path(str(key)+'.pub').write_bytes(Path(str(other)+'.pub').read_bytes())
+        result = self.run_setup(root, key, env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('result=key_pair_mismatch', (root/'receipt').read_text())
+        self.assertFalse((root/'calls').exists())
+        self.assertFalse((root/'agent-calls').exists())
+
+    def test_invalid_private_key_fails_before_agent_or_ssh(self):
+        root, key, env = self.fixture()
+        key.write_text('invalid private key')
+        result = self.run_setup(root, key, env)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('result=key_validation_failed', (root/'receipt').read_text())
+        self.assertFalse((root/'calls').exists())
+        self.assertFalse((root/'agent-calls').exists())
+
+    def test_protected_key_pair_uses_openssh_passphrase_handling(self):
+        root, _, env = self.fixture()
+        askpass = root/'askpass'
+        askpass.write_text('#!/bin/sh\nprintf "%s\\n" "$TELYND_TEST_PASSPHRASE"\n'); askpass.chmod(0o700)
+        env.update(SSH_ASKPASS=str(askpass), SSH_ASKPASS_REQUIRE='force', DISPLAY='telynd-fixture:0', TELYND_TEST_PASSPHRASE='fixture-only-passphrase')
+        for algorithm in ['ed25519', 'rsa', 'ecdsa']:
+            with self.subTest(algorithm=algorithm):
+                key = root/('protected-'+algorithm)
+                subprocess.run(['ssh-keygen', '-q', '-t', algorithm, '-N', 'fixture-only-passphrase', '-C', 'protected@example.test', '-f', str(key)], check=True, capture_output=True)
+                result = self.run_setup(root, key, env)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn('result=ssh_ready', (root/'receipt').read_text())
+
+    def test_additional_identities_are_described_as_account_access(self):
+        root, key, env = self.fixture()
+        config = root/'ssh-config'; config.write_text('Host *\n IdentityFile /tmp/unrelated_configured_key\n')
+        env['TEST_SSH_CONFIG'] = str(config)
+        result = self.run_setup(root, key, env)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        verification = [json.loads(line) for line in (root/'calls').read_text().splitlines()][1]
+        identities = [line for line in verification['configuration'].splitlines() if line.startswith('identityfile ')]
+        self.assertEqual(identities, ['identityfile '+str(key), 'identityfile /tmp/unrelated_configured_key'])
+        self.assertIn('SSH account access verified using your SSH configuration.', result.stdout)
+        self.assertIn('Other configured keys may have been used.', result.stdout)

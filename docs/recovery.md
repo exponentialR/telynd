@@ -24,13 +24,22 @@ its fingerprint against a trusted record using **SSH Terminal**. A changed
 host identity needs investigation; do not bypass the warning or blindly delete
 a known-host record.
 
-**Authorise SSH access** is a separate, confirmed action. Terminal unlocks the
-key through SSH/macOS Keychain, validates a single public key with OpenSSH and
-sends it as data to a fixed Linux-side installer over SSH. Linux login passwords
+**Authorise SSH access** is a separate, confirmed action. Before agent or host
+changes, OpenSSH validates a single public-key snapshot. It derives the public
+identity from the selected private key and compares it with that snapshot. A mismatch or
+unreadable private key stops setup. Protected keys may prompt for their
+passphrase during this check and again during Keychain setup. Routine checks
+use existing Keychain/agent access.
+
+Terminal then unlocks the key through SSH/macOS Keychain and sends the public
+key as data to a fixed Linux-side installer over SSH. Linux login passwords
 are typed directly into SSH. Telynd does not call `ssh-copy-id` or evaluate key
 filenames or comments as shell text.
-The selected key is then checked with a new non-interactive connection before
-authorisation is reported as ready. Repeating authorisation recognises the key
+
+A new strict, non-interactive connection then verifies **SSH account access
+using your SSH configuration**. Additional configured identities may take part;
+this result does not identify which key authenticated. The app and Terminal
+state that scope explicitly. Repeating authorisation recognises the key
 even when its existing entry has a different comment or access restrictions;
 it preserves that entry and never adds an unrestricted duplicate. New entries
 contain only the key type and public material. This action does not install
@@ -44,6 +53,9 @@ symlinked/hardlinked files. A failed or interrupted attempt may have created
 these paths; return to Telynd and recheck readiness. Standard Ed25519, RSA,
 ECDSA and OpenSSH security-key public keys are supported; certificates and
 files containing authorised-key options require separate administrator setup.
+Missing tools, lookup errors, unexpected lookup output and final-byte read
+failures stop installation before any key is appended. Existing restricted
+entries are preserved when their contents cannot be checked.
 
 First-contact authorisation explicitly prompts for host-key trust even if the
 user's SSH configuration disables checking. Subsequent automated connections

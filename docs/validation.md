@@ -6,8 +6,8 @@ users and does not establish usability timings or a live Google connection.
 
 ## Automated checks
 
-Local security-update results: 20 Swift tests passed; Python discovers 28 tests
-(27 passed and one flock test skipped on macOS). Linux runs all 28 and the
+Local security-update results: 20 Swift tests passed; Python discovers 32 tests
+(31 passed and one flock test skipped on macOS). Linux runs all 32 and the
 systemd integration.
 
 - Swift core tests cover connection-only and legacy models, strict supported
@@ -42,6 +42,11 @@ systemd integration.
   substitutions and backticks. Key comments remain stdin data, and malformed,
   multiple or oversized keys fail before SSH. The Keychain/transport adapters
   do not contact real accounts. Mac CI runs these cases too.
+  Mismatched pairs and invalid private keys stop before agent or SSH calls.
+  Encrypted Ed25519, RSA and ECDSA fixtures exercise OpenSSH's standard passphrase
+  reader through a fixture askpass program. An additional configured identity
+  remains visible in real SSH option resolution, and success wording reports
+  account access with that limitation.
 - `tests/linux-authorisation.sh` uses a disposable Linux account and actual
   shell execution, key tools, file permissions and locks. It covers hostile
   comments, existing restricted entries, missing final newlines, concurrent
@@ -50,6 +55,11 @@ systemd integration.
   This verifies the command/data boundary without a live SSH server or password.
   It passed locally in a disposable Debian container with networking disabled
   and no host-folder mounts; CI repeats it on Ubuntu.
+  Fault cases cover a missing lookup tool, non-zero lookup status (including
+  misleading stdout), empty/unexpected output and failed final-byte reads.
+  A real unreadable-file case verifies restricted contents and permissions are
+  unchanged. Test-only copies substitute the command path for adapters; the
+  production installer retains its fixed system path and has no fault flags.
 - Deterministic host-check state tests deliver superseded completions while a
   newer request is busy and after it has completed. They also cover returning
   to the original target, discarding the current request, retry and independent
@@ -113,6 +123,14 @@ settings start the guide; completed fixtures exercise relaunch. Do not publish
 real Chrome profile data or screenshots containing personal host details.
 
 ## Review corrections
+
+The final authorisation pass requires a successful explicit presence/absence
+lookup before appending and checks the final-byte read independently. Tool
+failures cannot add an unrestricted duplicate of a restricted entry. The Mac
+wrapper also derives and compares the selected private key's public identity
+before agent or network activity. Final connection verification is described
+as account access using the user's SSH configuration; additional identities
+can participate. It is separate from the local key-pair comparison.
 
 The dependency-level review found that the installed `ssh-copy-id` evaluated
 key filenames internally. A harmless isolated marker reproduced substitution

@@ -37,6 +37,41 @@ printf '# Existing configuration\ncommand="echo restricted",no-port-forwarding %
 cp "$authorised" "$fixture/expected"
 printf '%s\n' "$key" | remote
 cmp "$authorised" "$fixture/expected"
+# A real read-permission failure must preserve content and permissions.
+chmod 200 "$authorised"
+if printf '%s\n' "$key" | remote; then echo 'Unreadable key file accepted'; exit 1; fi
+cmp "$authorised" "$fixture/expected"
+[ "$(stat -c %a "$authorised")" = 200 ]; chmod 600 "$authorised"
+# Exercise the unchanged installer logic with an isolated fixture command path.
+# Only the fixed PATH is substituted; no production fault-injection flags exist.
+fault_index=0
+for fault in missing-awk awk-error awk-error-with-output awk-empty awk-unexpected tail-error; do
+  fault_index=$((fault_index + 1))
+  commands="$fixture/fault-$fault_index"; mkdir "$commands"
+  for tool in uname flock stat awk tail id mkdir chmod; do ln -s "$(command -v "$tool")" "$commands/$tool"; done
+  case "$fault" in
+    missing-awk) rm "$commands/awk";;
+    awk-error) rm "$commands/awk"; printf '#!/bin/sh\nexit 2\n' > "$commands/awk";;
+    awk-error-with-output) rm "$commands/awk"; printf '#!/bin/sh\necho absent\nexit 2\n' > "$commands/awk";;
+    awk-empty) rm "$commands/awk"; printf '#!/bin/sh\nexit 0\n' > "$commands/awk";;
+    awk-unexpected) rm "$commands/awk"; printf '#!/bin/sh\necho unexpected\n' > "$commands/awk";;
+    tail-error) rm "$commands/tail"; printf '#!/bin/sh\nexit 2\n' > "$commands/tail";;
+  esac
+  # chmod the new adapters only; never follow the executable symlinks.
+  for adapter in "$commands/awk" "$commands/tail"; do [ -L "$adapter" ] || [ ! -e "$adapter" ] || chmod 755 "$adapter"; done
+  fault_script="$fixture/fault-$fault_index.sh"
+  sed "s|^PATH=/usr/bin:/bin$|PATH=$commands|" "$source_root/scripts/authorise-remote.sh" > "$fault_script"
+  candidate=$key
+  if [ "$fault" = tail-error ]; then
+    printf '# Preserve this unterminated line' > "$authorised"
+    candidate=$second
+  else
+    printf 'command="echo restricted",no-port-forwarding %s existing comment\n' "$key" > "$authorised"
+  fi
+  cp "$authorised" "$fixture/expected"
+  if printf '%s\n' "$candidate" | runuser -u "$account" -- /bin/sh "$fault_script"; then echo "Lookup/read fault accepted: $fault"; exit 1; fi
+  cmp "$authorised" "$fixture/expected"
+done
 # Preserve a final unterminated line when adding another key.
 printf '# Keep this line' > "$authorised"
 printf '%s' "$second" | remote
