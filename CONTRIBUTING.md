@@ -49,3 +49,18 @@ on the same kind of disposable Linux environment. It creates/removes its own
 test account and exercises the actual public-key installer, including its
 command/data boundary, permissions, concurrent updates and restricted entries.
 Its transport and Keychain adapters do not establish live SSH authentication.
+
+The Ubuntu/Debian desktop helper is built from `linux-helper/`. Regenerate its
+bundled package after every helper or packager change:
+
+```sh
+python3 scripts/build_linux_helper.py assets/telynd-setup_0.2.0_all.deb
+python3 -m unittest discover -s tests -p test_linux_helper.py -v
+```
+
+The package has no install-time SSH action. Its fixed administrator action may
+install and start OpenSSH, so exercise it only on a disposable Linux machine.
+CI installs the package and tests its Tk interface under Xvfb. Pairing cards
+contain private network metadata even though their SSH keys are public; use
+only synthetic cards in tests and screenshots. Keep pairing probes bounded,
+explicit and separate from host trust and login.

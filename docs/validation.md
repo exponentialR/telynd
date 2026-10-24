@@ -1,5 +1,53 @@
 # Onboarding validation record
 
+## Guided Linux desktop pairing, 24 October 2026
+
+New Linux recovery starts with a desktop helper and short-lived setup card.
+The normal route no longer asks users to choose an address or SSH key file.
+Manual entry remains under Advanced. The Mac shows the supplied PC/account,
+requires an explicit bounded check and compares only the card's listed IPv4
+addresses against its public host keys. It does not log in or accept trust.
+Existing Terminal authorisation and restricted recovery installation remain
+separate approvals after pairing.
+
+All 71 Swift tests passed locally. Pairing coverage rejects unsupported or
+secret-bearing packets, malformed addresses, stale cards and identity mismatch;
+it limits candidate count and rejects cancelled or expired late results.
+Scanner stderr cannot supply public-key protocol output. The full local Python
+suite ran 52 tests without failures, with two expected platform/display skips.
+Nine release-security tests also passed after adding a helper-tampering case.
+The package is checked against reviewable source, root ownership/modes and a
+fixed PolicyKit action. Public-key reads and setup-file writes refuse symlinks
+and special files. Helper checks run off the Tk event thread; callbacks return
+through a main-thread queue. Closing during approved SSH preparation is blocked
+until the operation finishes, avoiding an accidental package-install interruption.
+
+Linux CI on a disposable Ubuntu runner installed the actual `.deb`, executed
+its fixed root action, verified an active SSH service and passed its desktop
+copy-card test under Xvfb. Existing Linux authorisation, directory-security and
+systemd lifecycle suites passed too. This is isolated installation/GUI evidence,
+not a real Google-host or first-time-user enrolment pilot. No personal host was
+modified. The remaining fresh-user journey includes graphical package-manager
+behaviour, file transfer, a real PolicyKit approval, first trust and authentication.
+
+Native macOS checks used only synthetic settings. The initial pairing pane fits
+its sheet and hides manual fields and later access/recovery actions. A fresh
+synthetic setup file showed the correct PC/account and explicit check; the
+fixture's blocked network produced neutral next-step guidance. Importing an
+invalid replacement removed the previous candidate. Advanced manual fields
+remained available. The temporary preview was quit, unregistered and moved to
+recoverable Trash; the canonical development app was updated in place. The
+user's existing setup window was left open and saved settings were hash-verified
+unchanged. Its new views load after relaunch. The ad-hoc bundle signature passed.
+
+![Guided Linux pairing with synthetic data](images/guided-pairing.png)
+
+The Ubuntu/Debian IPv4 helper is a developer preview. Other Linux distributions
+retain manual SSH setup; Mac/Windows retain their host-local kits. No automatic
+VPN or firewall setup, Google credential access, new host trust or public signed
+release is claimed. See [pairing](pairing.md) for approvals, packet semantics
+and network requirements.
+
 ## Clear Linux login and address instructions, 24 October 2026
 
 Linux recovery now keeps separate username and computer-address labels visible
