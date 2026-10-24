@@ -1,10 +1,21 @@
 # macOS release preparation
 
 Status on 24 October 2026: the maintainer does not yet have an available Apple
-Developer signing identity. No signing secrets are configured and **no signed
-or notarised public binary has been produced**. The authorised delivery is the
-prepared pipeline and recorded prerequisite. Issue #11 remains open for real
-signing and the download smoke test.
+Developer signing identity. No signing secrets are configured, and **no public
+binary has been signed with Developer ID or notarised by Apple**. The maintainer approved a
+separate [developer preview, v0.2.0-preview.1](https://github.com/exponentialR/telynd/releases/tag/v0.2.0-preview.1),
+built from reviewed commit `1957b9d88841bf2f037c66034376f3fddd997588` and clearly
+labelled as ad-hoc signed and not notarised. The exact ZIP was downloaded from
+the draft through Chrome, extracted with quarantine intact and installed in Applications.
+After an initial stalled macOS approval prompt was resolved, the maintainer
+approved the specific app; opening and relaunch preserved existing settings.
+The release includes checksums, source/build metadata and the complete preview
+validation record. A separate clean-Mac installation and replacement of an older
+installed app remain untested.
+
+The credentialed pipeline below retains its Developer ID and notarisation
+requirements. The preview does not satisfy those requirements or close #11;
+that issue remains open for real signing and the signed-download smoke test.
 
 ## Supported and tested combinations
 

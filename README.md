@@ -15,10 +15,19 @@ and Windows developer kits use a user launch agent and native crash recovery
 respectively, pending real-host validation. Service status does not prove Google can
 connect. Recovery cannot wake a sleeping PC or fix expired Google authorisation.
 
-**Early developer preview:** no signed public download is available yet. The
-[release pipeline](docs/releasing.md) is prepared; Apple signing credentials and
-the real download smoke test remain prerequisites. Source and original branding
-are released under the [MIT licence](LICENSE).
+**[Download Telynd 0.2.0 Preview 1 for Apple silicon](https://github.com/exponentialR/telynd/releases/download/v0.2.0-preview.1/Telynd-v0.2.0-preview.1-macos-arm64.zip).**
+This free developer preview is ad-hoc signed and **not notarised by Apple**.
+Read the included `READ_ME_FIRST.txt`: macOS may block its first opening and
+require an app-specific **Open Anyway** approval in Privacy & Security.
+No Xcode, Swift or Python installation is needed on the Mac. Runtime validation
+covers macOS 26 on Apple silicon; the build minimum is macOS 13, with earlier
+versions untested. Intel Macs are unsupported by this package.
+
+[Release notes, checksums and installation evidence](https://github.com/exponentialR/telynd/releases/tag/v0.2.0-preview.1)
+record the tested source and the initial macOS approval-prompt interruption.
+Apple Developer ID signing and notarisation remain follow-up work under the
+[release pipeline](docs/releasing.md). Source and original branding are released
+under the [MIT licence](LICENSE).
 
 - [Connect your first computer](docs/quick-start.md)
 - [Guided Linux pairing without choosing an IP address](docs/pairing.md)
