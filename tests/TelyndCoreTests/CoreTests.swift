@@ -37,7 +37,7 @@ final class CoreTests: XCTestCase {
         var prefs = Preferences(); prefs.chromeProfileEmail = "reader@example.test"; prefs.chromeProfileDirectory = "Profile 1"
         var bound = desktop; bound.chromeProfile = prefs.legacyChromeProfile
         let arguments = try ChromeLaunch.arguments(desktop: bound, profiles: ChromeProfiles.parse(metadata), applicationAvailable: true)
-        XCTAssertEqual(arguments, ["--profile-directory=Profile 1", link])
+        XCTAssertEqual(arguments, ["--profile-directory=Profile 1", "--app=\(link)"])
         XCTAssertFalse(arguments.contains(InputValidation.devicePicker))
         for invalid in [InputValidation.devicePicker, link + "?account=other", link + "/", link.replacingOccurrences(of: "google.com", with: "google.com.evil.test"), link.replacingOccurrences(of: "/access/", with: "/access/%73ession/"), "https://remotedesktop.google.com/access/session/not-a-device"] {
             XCTAssertFalse(Desktop(name: "Workstation", chromeURL: invalid).hasDirectConnection, invalid)
@@ -165,7 +165,7 @@ final class CoreTests: XCTestCase {
         XCTAssertThrowsError(try ChromeLaunch.arguments(desktop: desktop, profiles: profiles, applicationAvailable: false)) { error in
             XCTAssertEqual(error as? ConfigurationError, .chromeMissing)
         }
-        XCTAssertEqual(try ChromeLaunch.arguments(desktop: desktop, profiles: profiles, applicationAvailable: true), ["--profile-directory=Profile 1", desktop.chromeURL])
+        XCTAssertEqual(try ChromeLaunch.arguments(desktop: desktop, profiles: profiles, applicationAvailable: true), ["--profile-directory=Profile 1", "--app=\(desktop.chromeURL)"])
         desktop.chromeProfile?.email = "someone-else@example.test"
         XCTAssertThrowsError(try ChromeLaunch.arguments(desktop: desktop, profiles: profiles, applicationAvailable: true))
         XCTAssertThrowsError(try ChromeLaunch.arguments(desktop: desktop, profiles: [], applicationAvailable: true))

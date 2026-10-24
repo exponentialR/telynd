@@ -36,7 +36,9 @@ before normal download-and-open distribution.
    open their host-local recovery-kit setup. **Save connection only** finishes
    adding the computer without configuring recovery; you can add it later.
 5. Choose **Connect** on the computer's row. Telynd opens its direct link using
-   its saved Chrome profile, without a global account switch. Complete Google's
+   its saved Chrome profile in a separate session window, without browser tabs
+   or a global account switch. This is a Chrome window; the remote screen is
+   not embedded inside Telynd. Use **… → Open in Chrome tab** for the tab view. Complete Google's
    connection prompts, including its PIN if requested. Telynd records the
    launch; only you can confirm that the remote session connected.
 

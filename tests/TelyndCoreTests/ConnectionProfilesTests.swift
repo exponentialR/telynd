@@ -12,14 +12,17 @@ final class ConnectionProfilesTests: XCTestCase {
         for profile in available {
             var desktop = Desktop(name: "Computer", chromeURL: link)
             desktop.chromeProfile = profile.reference
-            XCTAssertEqual(try ChromeLaunch.arguments(desktop: desktop, profiles: available, applicationAvailable: true), ["--profile-directory=\(profile.directory)", link])
+            XCTAssertEqual(try ChromeLaunch.arguments(desktop: desktop, profiles: available, applicationAvailable: true), ["--profile-directory=\(profile.directory)", "--app=\(link)"])
+            XCTAssertEqual(try ChromeLaunch.arguments(desktop: desktop, profiles: available, applicationAvailable: true, presentation: .tab), ["--profile-directory=\(profile.directory)", link])
         }
     }
     func testMissingChangedAndUnresolvedProfilesNeverFallBackToAnotherAccount() throws {
         let available = try profiles(["Profile 2": "other@example.test", "Profile 3": "personal@example.test"])
         for reference in [nil, ChromeProfileReference(directory: "Profile 1", email: "personal@example.test"), ChromeProfileReference(directory: "Profile 2", email: "personal@example.test"), ChromeProfileReference(directory: nil, email: "personal@example.test")] {
             var desktop = Desktop(name: "Computer", chromeURL: link); desktop.chromeProfile = reference
-            XCTAssertThrowsError(try ChromeLaunch.arguments(desktop: desktop, profiles: available, applicationAvailable: true))
+            for presentation in [ChromeLaunch.Presentation.window, .tab] {
+                XCTAssertThrowsError(try ChromeLaunch.arguments(desktop: desktop, profiles: available, applicationAvailable: true, presentation: presentation))
+            }
         }
     }
     func testLegacyMigrationPreservesExistingAssociationsAndUnavailableSelections() throws {

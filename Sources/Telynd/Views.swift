@@ -90,7 +90,7 @@ struct ContentView: View {
                             ForEach(filtered) { item in DesktopRow(desktop: item) { editing = item } }
                         }
                     }
-                    Text("Connections open in Chrome using each computer’s saved account.")
+                    Text("Connections open in separate Chrome windows using each computer’s saved account.")
                         .font(.caption).foregroundStyle(.secondary)
                 }.padding(24).frame(maxWidth: 960, alignment: .leading).frame(maxWidth: .infinity)
             }
@@ -183,8 +183,11 @@ struct DesktopRow: View {
                     Text(action).frame(minWidth: 64)
                 }.buttonStyle(ConnectButton()).disabled(store.writeLocked)
                     .accessibilityLabel("\(action) \(desktop.name)")
+                    .help("Open a separate Chrome session window using this computer’s saved account.")
                 Menu {
                     Button("Edit computer…", action: edit).disabled(store.writeLocked)
+                    Button("Open in Chrome tab") { store.connect(desktop, presentation: .tab) }
+                        .disabled(store.writeLocked || !desktop.hasDirectConnection || !store.profileReady(for: desktop))
                     Button(detailsExpanded ? "Hide details" : "Details & recovery") { detailsExpanded.toggle() }
                     Divider()
                     Button("Recovery settings…") { store.recoveryDesktop = desktop }.disabled(store.writeLocked)

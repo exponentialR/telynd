@@ -140,3 +140,12 @@ transitioning Chrome services alone; uninstall preserves Chrome and SSH keys.
 See [CONTRIBUTING.md](CONTRIBUTING.md) for verification and contribution guidance.
 The bundled Manrope font retains its [SIL Open Font Licence](assets/branding/source/OFL.txt).
 Telynd is independent and is not affiliated with Google or Apple.
+
+## Session windows
+
+Connect opens the saved computer link in a separate Chrome window using that
+computer’s saved browser account. **… → Open in Chrome tab** keeps the tab
+option available. Google still owns the screen connection and sign-in; this
+is not a viewer embedded inside Telynd. The [viewer feasibility record](docs/session-viewer.md)
+explains the native WebKit probe, account/window checks and remaining integration
+requirements. Recovery behaviour is unchanged.

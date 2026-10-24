@@ -215,16 +215,16 @@ import CryptoKit
             completed()
         } catch { self.error = error.localizedDescription }
     }
-    func connect(_ desktop: Desktop) {
+    func connect(_ desktop: Desktop, presentation: ChromeLaunch.Presentation = .window) {
         guard desktops.contains(where: { $0.id == desktop.id }) else { error = "Restore this computer before connecting."; return }
         guard desktop.hasDirectConnection else { error = "Save this computer’s individual connection link before connecting. Choose Edit, then Choose computer in Chrome and select the computer in Google’s list."; return }
-        openChrome(desktop) { [weak self] in
+        openChrome(desktop, presentation: presentation) { [weak self] in
             guard let self else { return }
             var item = desktop; item.lastLaunch = Date()
-            if self.save(item) { self.operationNotes[item.id] = "Opened in Chrome. A browser launch does not confirm a connected remote session." }
+            if self.save(item) { self.operationNotes[item.id] = (presentation == .window ? "Opened in a separate Chrome window." : "Opened in a Chrome tab.") + " A browser launch does not confirm a connected remote session." }
         }
     }
-    func openChrome(_ desktop: Desktop, picker: Bool = false, completed: (() -> Void)? = nil) {
+    func openChrome(_ desktop: Desktop, picker: Bool = false, presentation: ChromeLaunch.Presentation = .window, completed: (() -> Void)? = nil) {
         refreshProfiles()
         let chrome = fixtureMode ? nil : NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.google.Chrome")
         let arguments: [String]
@@ -233,7 +233,7 @@ import CryptoKit
                 let profile = try ChromeProfiles.selected(in: profiles, reference: desktop.chromeProfile)
                 guard fixtureMode || chrome != nil else { throw ConfigurationError.chromeMissing }
                 arguments = ["--profile-directory=\(profile.directory)", InputValidation.devicePicker]
-            } else { arguments = try ChromeLaunch.arguments(desktop: desktop, profiles: profiles, applicationAvailable: fixtureMode || chrome != nil) }
+            } else { arguments = try ChromeLaunch.arguments(desktop: desktop, profiles: profiles, applicationAvailable: fixtureMode || chrome != nil, presentation: presentation) }
         }
         catch { self.error = error.localizedDescription; return }
         if fixtureMode { completed?(); return }

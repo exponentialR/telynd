@@ -1,5 +1,30 @@
 # Onboarding validation record
 
+## Session windows and embedded-viewer feasibility, 24 October 2026
+
+Connect now requests a separate Chrome application-mode window with the saved
+account and direct connection link. **Open in Chrome tab** is available from
+its options menu; both routes retain account and URL validation. All 77 Swift
+tests passed after updating window/tab expectations and checking that both
+modes refuse missing or changed profiles. The release build and ad-hoc bundle
+signature passed. Native checks verified the running app's window explanation
+and browser-tab fallback; saved desktop and preference files were unchanged.
+
+An isolated WebKit probe reached Google's unsupported-browser page. Its site
+compatibility continuation led towards Google sign-in, where the probe
+intentionally stopped before requesting credentials. No authenticated embedded
+session was established. Two existing signed-in Chrome profiles separately
+opened Google's public device picker in application-mode windows, displaying
+different accounts without tab strips or address bars. Only those test windows
+were closed; the original remote session still reported Connected. A second
+real-host session was not started. Native audio/clipboard/keyboard/reconnect
+acceptance in a newly launched session remains outstanding.
+
+The probe apps were quit, unregistered and moved to recoverable Trash. Their
+source, public-only compatibility screenshot, provider-policy references and
+limitations are in the [feasibility record](session-viewer.md). The production
+app contains no embedded viewer or credential/cookie-transfer mechanism.
+
 ## Linux folder permissions before authorisation, 24 October 2026
 
 The live setup report exposed an account home with mode 0772. A key already
