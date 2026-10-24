@@ -74,6 +74,7 @@ try {
         return [pscustomobject]@{Status=$global:TelyndFixtureSignatureStatus;SignerCertificate=$cert}
     }
     $id='00000000-0000-0000-0000-000000000001'
+    Write-Host 'Validating the protected synthetic host'
     $before=& $script -Action check -DesktopID $id | ConvertFrom-Json
     Assert ($before.installation -eq 'missing') 'Expected missing installation'
     Assert (-not (Test-Path (Join-Path $root 'owned'))) 'Check mutated filesystem'
@@ -121,6 +122,7 @@ try {
     Assert-CheckRefused 'Writable service DACL accepted'
     & sc.exe sdset $service $serviceSddl | Out-Null
     Assert ($LASTEXITCODE -eq 0) 'Fixture service DACL restoration failed'
+    Write-Host 'Validating restored host permissions and policy lifecycle'
     $original=[Telynd.ServicePolicy]::Read($service) | ConvertTo-Json -Depth 8 -Compress
     Assert (([Telynd.ServicePolicy]::Security($service)).Contains('D:')) 'Native service security descriptor was not returned'
     $installed=& $script -Action install -DesktopID $id | ConvertFrom-Json
