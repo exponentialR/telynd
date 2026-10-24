@@ -126,6 +126,7 @@ struct StatusDetails: View {
                 Text("Google connection: not verified by Telynd")
                 if let date = observation.checkedAt { Text("Checked \(date.formatted(date: .omitted, time: .shortened))\(now.timeIntervalSince(date) > 300 ? " · stale — recheck" : "")") }
                 if let report = observation.report {
+                    if let enabled = report.values["chrome_enabled"], !["enabled", "enabled-runtime"].contains(enabled) { Text("Recovery leaves a host that is not enabled alone. Ask the administrator to review its intended state.") }
                     if report.values["service_loaded"] == "not-found" { Text("Set up the Linux Chrome host for this account using Google’s guide, then recheck.") }
                     if let missing = report.values["missing_tools"], !missing.isEmpty { Text("Ask the host administrator to provide: \(missing). Recheck afterwards.") }
                     if !report.supported { Text("Keep connection-only access; recovery needs Linux with systemd.") }

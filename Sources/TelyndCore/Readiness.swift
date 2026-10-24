@@ -29,7 +29,11 @@ public struct ReadinessReport: Equatable {
         if values["installation"] == "partial" || values["installation"] == "unsafe" { return "Recovery setup needs attention" }
         return "Recovery not configured"
     }
-    public var serviceLabel: String { values["service"] ?? "unknown" }
+    public var serviceLabel: String {
+        let state = values["service"] ?? "unknown"
+        if let enabled = values["chrome_enabled"], !["enabled", "enabled-runtime"].contains(enabled) { return "\(state) (\(enabled.isEmpty ? "enablement unknown" : enabled))" }
+        return state
+    }
 }
 
 public enum SSHResult: Equatable {

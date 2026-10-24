@@ -93,6 +93,8 @@ final class CoreTests: XCTestCase {
         let installed = ReadinessReport(output: "TELYND:ssh=ready\nTELYND:os=linux\nTELYND:systemd=available\nTELYND:installation=verified\nTELYND:timer=active\nTELYND:timer_enabled=enabled\nTELYND:service=failed")
         XCTAssertTrue(installed.recoveryEnabled)
         XCTAssertEqual(installed.serviceLabel, "failed")
+        let disabled = ReadinessReport(output: "TELYND:service=inactive\nTELYND:chrome_enabled=disabled")
+        XCTAssertEqual(disabled.serviceLabel, "inactive (disabled)")
     }
     func testSSHFailuresHaveDifferentNextActions() {
         XCTAssertEqual(SSHResult(code: 255, output: "Permission denied"), .authenticationRequired)

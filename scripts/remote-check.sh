@@ -18,6 +18,7 @@ helper="/usr/local/libexec/remote-desktops-recover-$uid"
 status="/usr/local/libexec/remote-desktops-status-$uid"
 emit service_loaded "$(systemctl show "$unit" -p LoadState --value)"
 emit service "$(systemctl show "$unit" -p ActiveState --value)"
+emit chrome_enabled "$(systemctl is-enabled "$unit" 2>/dev/null || true)"
 emit timer "$(systemctl show "$name.timer" -p ActiveState --value)"
 emit timer_enabled "$(systemctl is-enabled "$name.timer" 2>/dev/null || true)"
 missing=''

@@ -17,7 +17,7 @@ class RecoveryTest(unittest.TestCase):
 set -eu
 case "$1" in
   show) cat "$TEST_WORK/state" ;;
-  is-enabled) test "$TEST_ENABLED" = yes ;;
+  is-enabled) echo "$TEST_ENABLED"; case "$TEST_ENABLED" in enabled|enabled-runtime) exit 0;; *) exit 1;; esac ;;
   start)
     echo start >> "$TEST_WORK/actions"
     test "$TEST_FAIL" = no
@@ -42,7 +42,7 @@ esac
             helper = helper.replace("'$flock_path' -n 9", 'true')
         script = tmp / "recover"
         script.write_text(helper)
-        env = dict(os.environ, TEST_WORK=str(tmp), TEST_ENABLED='yes' if enabled else 'no', TEST_FAIL='yes' if start_fails else 'no', TEST_DELAY='no')
+        env = dict(os.environ, TEST_WORK=str(tmp), TEST_ENABLED=('enabled' if enabled is True else 'disabled' if enabled is False else enabled), TEST_FAIL='yes' if start_fails else 'no', TEST_DELAY='no')
         return script, env
 
     def run_case(self, state, enabled=True, start_fails=False, args=()):
@@ -70,9 +70,10 @@ esac
                 self.assertIn('recovered', result.stdout)
 
     def test_disabled_service_stays_disabled(self):
-        result, actions = self.run_case('inactive', enabled=False)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertEqual(actions, '')
+        for enablement in ['disabled', 'masked', 'static', 'indirect', 'linked', 'unknown']:
+            result, actions = self.run_case('inactive', enabled=enablement)
+            self.assertNotEqual(result.returncode, 0, enablement)
+            self.assertEqual(actions, '', enablement)
 
     def test_transition_and_unknown_states_are_left_alone(self):
         for state in ['activating', 'deactivating', 'reloading', 'unknown', '']:

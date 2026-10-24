@@ -83,7 +83,8 @@ Self-review tightened SSH time/output bounds and rejects partial success
 protocols, clears observations when the target or key changes, blocks recovery
 from unsaved or stale details, and associates Terminal receipts with the exact
 saved target/key. A prepared action cannot inherit an old successful receipt.
-Root helpers use a fixed system PATH. The installer serialises setup operations, verifies surviving recorded files before retry and refuses
+Root helpers use a fixed system PATH. Recovery requires explicit enabled or
+enabled-runtime state; systemd static/indirect/linked states are left alone too. The installer serialises setup operations, verifies surviving recorded files before retry and refuses
 unknown files or content drift. Application replacement validates a fresh whole
 bundle before swapping it, preventing obsolete resources and Finder metadata
 from surviving an update. Settings writes also reapply owner-only permissions

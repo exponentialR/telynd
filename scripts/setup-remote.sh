@@ -40,9 +40,11 @@ state=\$('$systemctl_path' show "\$unit" -p ActiveState --value)
 case "\$state" in
   active) echo 'Chrome host service is running. No restart needed.' ;;
   inactive|failed)
-    if ! '$systemctl_path' is-enabled --quiet "\$unit"; then
-      echo 'Chrome host service is disabled. No restart attempted.'; exit 3
-    fi
+    enablement=\$('$systemctl_path' is-enabled "\$unit" 2>/dev/null || true)
+    case "\$enablement" in
+      enabled|enabled-runtime) ;;
+      *) echo 'Chrome host service is not enabled. No restart attempted.'; exit 3;;
+    esac
     # start is idempotent if another process has already started the service.
     '$systemctl_path' start "\$unit"
     for attempt in 1 2 3 4 5; do
