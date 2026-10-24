@@ -96,7 +96,9 @@ function Save-Ledger($Data) {
     try {
         $stream = [IO.File]::Open($temp,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
         try { $bytes=[Text.Encoding]::UTF8.GetBytes(($Data | ConvertTo-Json -Depth 10)); $stream.Write($bytes,0,$bytes.Length); $stream.Flush($true) } finally { $stream.Dispose() }
-        if (Test-Path -LiteralPath $Ledger) { [IO.File]::Replace($temp,$Ledger,$null) } else { [IO.File]::Move($temp,$Ledger) }
+        # Windows PowerShell coerces $null to an empty string for CLR string
+        # parameters. NullString requests no backup path (not an invalid "").
+        if (Test-Path -LiteralPath $Ledger) { [IO.File]::Replace($temp,$Ledger,[NullString]::Value) } else { [IO.File]::Move($temp,$Ledger) }
     } finally { if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp } }
 }
 

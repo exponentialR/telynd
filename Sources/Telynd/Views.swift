@@ -97,8 +97,8 @@ struct DesktopCard: View {
                 Spacer()
                 Button(action: edit) { Image(systemName: "slider.horizontal.3") }.buttonStyle(.borderless).accessibilityLabel("Edit \(desktop.name)")
             }
-            if desktop.target != nil || observed.report != nil { StatusDetails(observation: observed, now: now) }
-            else { Text("Open your saved Google link. Optional recovery is configured for the remote computer’s operating system.").font(.callout).foregroundStyle(.secondary).frame(minHeight: 42, alignment: .top) }
+            if desktop.target != nil || observed.report != nil { StatusDetails(observation: observed, now: now, platform: desktop.hostPlatform) }
+            else { Text("Open your saved Google link. You can set up optional recovery for this computer’s operating system.").font(.callout).foregroundStyle(.secondary).frame(minHeight: 42, alignment: .top) }
             Button { store.connect(desktop) } label: { Label("Open remote desktop", systemImage: "arrow.up.right.square").frame(maxWidth: .infinity) }.buttonStyle(PrimaryButton())
             if let launched = desktop.lastLaunch { Text("Last opened in Chrome: \(launched.formatted(date: .abbreviated, time: .shortened))").font(.caption).foregroundStyle(.secondary) }
             if let note = store.operationNotes[desktop.id] { Text(note).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }
@@ -118,6 +118,7 @@ struct DesktopCard: View {
 struct StatusDetails: View {
     let observation: HostObservation
     var now = Date()
+    var platform: HostPlatform = .unknown
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             if observation.busy { ProgressView("Checking readiness…").controlSize(.small) }
@@ -127,9 +128,10 @@ struct StatusDetails: View {
                     Text("Host: \(observation.report?.values["os"] ?? "unknown") \(observation.report?.values["os_version"] ?? "")")
                     Text("Recovery scope: \(observation.report?.values["recovery_scope"] ?? "unknown")")
                     Text("Privacy permissions: unknown — review on the host")
-                } else { Text("SSH: \(observation.ssh == .ready ? "access verified" : "not verified")") }
+                } else if platform.usesSSHRecovery { Text("SSH: \(observation.ssh == .ready ? "access verified" : "not verified")") }
+                else { Text("Evidence: no imported host snapshot") }
                 Text("Chrome service: \(observation.report?.serviceLabel ?? "unknown")")
-                if observation.report?.imported != true { Text("Recovery timer: \(observation.report?.values["timer"] ?? "unknown")") }
+                if platform.usesSSHRecovery && observation.report?.imported != true { Text("Recovery timer: \(observation.report?.values["timer"] ?? "unknown")") }
                 Text("Google connection: not verified by Telynd")
                 if let date = observation.checkedAt { Text("Checked \(date.formatted(date: .omitted, time: .shortened))\(now.timeIntervalSince(date) > 300 ? " · stale — recheck" : "")") }
                 if let report = observation.report {
@@ -299,7 +301,7 @@ struct RecoverySheet: View {
                     Button("Import host report…") { store.importHostReport(current) }.disabled(platform != current.hostPlatform)
                 }
                 Text("Run check, install, disable, uninstall or explicit manual recovery ON THE HOST using the kit. Import a fresh report afterwards; imported evidence does not establish current host identity or Google connectivity.").font(.caption).foregroundStyle(.secondary)
-                StatusDetails(observation: observed, now: now)
+                StatusDetails(observation: observed, now: now, platform: current.hostPlatform)
                 if let note = store.operationNotes[desktop.id] { Text(note).font(.callout).foregroundStyle(.secondary) }
             } else {
             Text("Optional recovery supports Linux with systemd and an existing per-account Chrome host service. Other computers can remain connection-only. An existing reachable SSH route is needed; Tailscale is optional.").font(.callout).foregroundStyle(.secondary)
@@ -309,7 +311,7 @@ struct RecoverySheet: View {
                 Button("Save and check readiness") { if saveDetails() { store.check(current) } }.disabled(!valid || observed.busy)
                 Button("SSH Terminal") { if saveDetails() { store.terminal(current, action: "connect") } }.disabled(!valid)
             }
-            StatusDetails(observation: observed, now: now)
+            StatusDetails(observation: observed, now: now, platform: current.hostPlatform)
             if let note = store.operationNotes[desktop.id] { Text(note).font(.callout).foregroundStyle(.secondary).textSelection(.enabled) }
             Divider()
             Text("Each action explains its scope before opening Terminal. Enter login and administrator passwords directly there. No password is saved by Telynd.").font(.caption).foregroundStyle(.secondary)
