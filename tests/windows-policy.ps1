@@ -33,7 +33,13 @@ class Fixture : ServiceBase {
 }
 '@
 try {
-    Add-Type -TypeDefinition $fixtureSource -ReferencedAssemblies System.ServiceProcess.dll -OutputAssembly $exe -OutputType WindowsApplication
+    # Use the installed .NET Framework compiler so the fixture is an executable
+    # under both Windows PowerShell 5.1 and PowerShell 7.
+    $sourceFile=Join-Path $root 'fixture.cs'
+    Set-Content -LiteralPath $sourceFile -Value $fixtureSource -Encoding UTF8
+    $compiler=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+    & $compiler /nologo /target:winexe /reference:System.ServiceProcess.dll ("/out:"+$exe) $sourceFile
+    Assert ($LASTEXITCODE -eq 0) 'Fixture compilation failed'
     & sc.exe create $service binPath= ('"'+$exe+'"') start= demand | Out-Null
     Assert ($LASTEXITCODE -eq 0) 'Fixture registration failed'
     Start-Service $service

@@ -17,6 +17,11 @@ jobs:
         env:
           TELYND_DISPOSABLE_WINDOWS: '1'
         run: ./tests/windows-policy.ps1
+      - name: Verify the same lifecycle under PowerShell 7
+        shell: pwsh
+        env:
+          TELYND_DISPOSABLE_WINDOWS: '1'
+        run: ./tests/windows-policy.ps1
 
   recovery:
     runs-on: ubuntu-latest
