@@ -25,18 +25,21 @@ function Assert-ProtectedPath([string]$Path) {
     # Follow no reparse points. Only Administrators, SYSTEM and TrustedInstaller
     # may own a path or receive write access anywhere in its ancestry.
     $item = Get-Item -LiteralPath $Path -Force
+    $leaf = $true
     while ($null -ne $item) {
         if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Reparse points are not accepted.' }
         $acl = Get-Acl -LiteralPath $item.FullName
         $trusted = @('S-1-5-18','S-1-5-32-544','S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464')
         if ($acl.GetOwner([Security.Principal.SecurityIdentifier]).Value -notin $trusted) { throw 'Untrusted file owner.' }
-        $write = [Security.AccessControl.FileSystemRights]::Write -bor [Security.AccessControl.FileSystemRights]::Delete -bor [Security.AccessControl.FileSystemRights]::ChangePermissions -bor [Security.AccessControl.FileSystemRights]::TakeOwnership
+        $write = [Security.AccessControl.FileSystemRights]::DeleteSubdirectoriesAndFiles -bor [Security.AccessControl.FileSystemRights]::Delete -bor [Security.AccessControl.FileSystemRights]::ChangePermissions -bor [Security.AccessControl.FileSystemRights]::TakeOwnership
+        if ($leaf) { $write = $write -bor [Security.AccessControl.FileSystemRights]::Write }
         foreach ($rule in $acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])) {
             # InheritOnly rights do not apply to this item (e.g. C:\ child creation).
             if (($rule.PropagationFlags -band [Security.AccessControl.PropagationFlags]::InheritOnly) -ne 0) { continue }
-            if ($rule.AccessControlType -eq 'Allow' -and ($rule.FileSystemRights -band $write) -ne 0 -and $rule.IdentityReference.Value -notin $trusted) { throw 'Path is writable by an untrusted identity.' }
+            if ($rule.AccessControlType -eq 'Allow' -and ($rule.FileSystemRights -band $write) -ne 0 -and $rule.IdentityReference.Value -notin $trusted) { throw "Unsafe permissions at $($item.FullName): $($rule.IdentityReference.Value) $($rule.FileSystemRights)." }
         }
         if ($item -is [IO.FileInfo]) { $item = $item.Directory } else { $item = $item.Parent }
+        $leaf = $false
     }
 }
 function Get-ChromeHost {
@@ -60,7 +63,7 @@ function Get-ChromeHost {
     $descriptor=New-Object Security.AccessControl.RawSecurityDescriptor([Telynd.ServicePolicy]::Security($ServiceName))
     if ($descriptor.Owner.Value -notin @($Admins.Value,$System.Value) -or $null -eq $descriptor.DiscretionaryAcl) { throw 'Untrusted service security descriptor.' }
     foreach ($ace in $descriptor.DiscretionaryAcl) {
-        if ($ace.AceType -eq [Security.AccessControl.AceType]::AccessAllowed -and
+        if ($ace -is [Security.AccessControl.QualifiedAce] -and $ace.AceQualifier -eq [Security.AccessControl.AceQualifier]::AccessAllowed -and
             ($ace.AccessMask -band 0x500D0002) -ne 0 -and $ace.SecurityIdentifier.Value -notin @($Admins.Value,$System.Value)) { throw 'Another identity can modify the Chrome service.' }
     }
     return $service

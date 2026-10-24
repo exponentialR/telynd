@@ -88,7 +88,8 @@ inspect_google() {
   fi
   local state
   if state=$(launchctl print "$target" 2>/dev/null); then
-    service=stopped; recovery=stopped-service
+    service=unknown; recovery=stopped-service
+    if printf '%s\n' "$state" | grep -Eq '^[[:space:]]*state = (not running|exited|stopped)$'; then service=stopped; fi
     if printf '%s\n' "$state" | grep -Eq '^[[:space:]]*state = running$'; then service=running; fi
     if printf '%s\n' "$state" | grep -Eq '^[[:space:]]*state = (spawning|spawn scheduled|throttled)$'; then service=transitioning; fi
   else service=unknown; fi

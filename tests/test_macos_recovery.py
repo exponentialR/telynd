@@ -85,7 +85,7 @@ esac
 
     def test_disabled_running_transitioning_and_missing_session_are_untouched(self):
         self.run_mode('install')
-        for state in ['running','spawning','spawn scheduled','throttled']:
+        for state in ['running','spawning','spawn scheduled','throttled','unrecognised-state']:
             (self.root/'service').write_text(state)
             self.assertEqual(self.run_mode('tick')['outcome'],'unchanged')
         (self.root/'service').write_text('stopped')
