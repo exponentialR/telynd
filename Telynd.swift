@@ -290,6 +290,7 @@ struct ContentView: View {
                     .background(.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 16))
             }.padding(34)
         }.background(Color(nsColor: .windowBackgroundColor))
+        .tint(Color(red: 18.0 / 255, green: 92.0 / 255, blue: 1))
         .frame(minWidth: 830, minHeight: 620)
         .sheet(item: $editing) { DesktopEditor(desktop: $0).environmentObject(store) }
         .sheet(isPresented: $choosingProfile) { ChromeProfileEditor(email: store.chromeProfileEmail).environmentObject(store) }
