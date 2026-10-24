@@ -15,10 +15,13 @@ before normal download-and-open distribution.
    list. If it is missing, open Chrome to sign in and choose **Refresh profiles**.
    The list reflects local Chrome metadata, not a fresh Google authentication
    check.
-3. Name your computer. Keep the default Google device-picker link, or paste
-   its own `https://remotedesktop.google.com/access/session/…` address from
-   Chrome. Select Mac, Windows or Linux (or leave it unselected). No SSH address is needed.
-4. Choose **Open remote desktop**. Complete the connection in Chrome, including
+3. Name your computer. Choose **Choose computer in Chrome** and open the
+   intended computer in Google's list. Return to Telynd and choose **Use open
+   computer**. macOS asks once for permission for Telynd to interact with Chrome;
+   Telynd reads only the front tab's address on this action. Review and save
+   the computer. **Connect** then opens it directly. No copying or SSH address
+   is needed. Connections use the Chrome profile selected in Telynd.
+4. Choose **Connect**. Complete the connection in Chrome, including
    Google's PIN prompt if requested. Telynd records the launch; only you can
    confirm that the remote session connected.
 5. Finish with **connection-only access**, or start optional recovery for the selected operating system.
@@ -27,7 +30,20 @@ before normal download-and-open distribution.
 You can close the guide and resume its completed steps later. Saved computers
 and the selected profile survive relaunch. **Setup guide** reopens the guide;
 **Edit** changes a computer's name, connection link or optional SSH address.
-Recovery details are available from the computer's card at any time.
+Expand **Details & recovery** on a card for service checks, launch history
+and recovery settings. The home screen shows a compact recovery summary;
+it does not claim the computer is online or that Google has connected.
+
+Older entries that saved Google's general device-list link are preserved.
+They show **Set connection link** until you save the individual computer's
+address. New entries require that address before saving. Choose the remote
+operating system under **Optional recovery**, or when setting up recovery later.
+
+If Chrome access is denied, you can enable it under **System Settings → Privacy
+& Security → Automation → Telynd**, or expand **Enter link manually** and paste
+the individual computer's `https://remotedesktop.google.com/access/session/…`
+address. Reading the device-list page or an unrelated tab does not save a
+connection. Capturing an address never starts SSH or changes a remote host.
 
 If a profile was removed, signed out or switched to a different account, select
 its current signed-in profile again. Telynd does not silently choose another

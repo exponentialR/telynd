@@ -19,6 +19,38 @@ final class CoreTests: XCTestCase {
         XCTAssertNil(new.target); XCTAssertTrue(new.valid)
         XCTAssertEqual(try JSONDecoder().decode(Desktop.self, from: JSONEncoder().encode(new)), new)
     }
+    func testDevicePickerEntriesRemainReadableButNeedAnIndividualConnectionLink() throws {
+        for link in [InputValidation.devicePicker, InputValidation.devicePicker + "/"] {
+            let saved = Desktop(name: "Existing computer", target: "reader@host.example", chromeURL: link)
+            let restored = try JSONDecoder().decode(Desktop.self, from: JSONEncoder().encode(saved))
+            XCTAssertTrue(restored.valid)
+            XCTAssertFalse(restored.hasDirectConnection)
+            XCTAssertEqual(restored.id, saved.id)
+            XCTAssertEqual(restored.target, saved.target)
+            XCTAssertEqual(restored.chromeURL, link)
+        }
+    }
+    func testDirectConnectionsUseTheExactSavedComputerAndSelectedProfile() throws {
+        let link = "https://remotedesktop.google.com/access/session/11111111-1111-4111-8111-111111111111"
+        let desktop = Desktop(name: "Workstation", chromeURL: link)
+        XCTAssertTrue(desktop.hasDirectConnection)
+        var prefs = Preferences(); prefs.chromeProfileEmail = "reader@example.test"; prefs.chromeProfileDirectory = "Profile 1"
+        let arguments = try ChromeLaunch.arguments(url: desktop.chromeURL, profiles: ChromeProfiles.parse(metadata), preferences: prefs, applicationAvailable: true)
+        XCTAssertEqual(arguments, ["--profile-directory=Profile 1", link])
+        XCTAssertFalse(arguments.contains(InputValidation.devicePicker))
+        for invalid in [InputValidation.devicePicker, link + "?account=other", link + "/", link.replacingOccurrences(of: "google.com", with: "google.com.evil.test"), link.replacingOccurrences(of: "/access/", with: "/access/%73ession/"), "https://remotedesktop.google.com/access/session/not-a-device"] {
+            XCTAssertFalse(Desktop(name: "Workstation", chromeURL: invalid).hasDirectConnection, invalid)
+        }
+    }
+    func testChromeCaptureAcceptsOnlyAnIndividualGoogleConnection() throws {
+        let link = "https://remotedesktop.google.com/access/session/11111111-1111-4111-8111-111111111111"
+        XCTAssertEqual(try ChromeConnectionCapture.validatedLink(" \n" + link + "\n"), link)
+        for input in [InputValidation.devicePicker, "https://mail.google.com/", link + "?token=secret", link + "#fragment", link.replacingOccurrences(of: "https:", with: "file:"), link.replacingOccurrences(of: "google.com", with: "google.com.evil.test"), "javascript:alert(1)", ""] {
+            XCTAssertThrowsError(try ChromeConnectionCapture.validatedLink(input), input)
+        }
+        XCTAssertThrowsError(try ChromeConnectionCapture.validatedLink(nil))
+        XCTAssertThrowsError(try ChromeConnectionCapture.validatedLink(String(repeating: "a", count: 2049)))
+    }
     func withStore(_ action: (ConfigurationStore, URL) throws -> Void) throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: dir) }

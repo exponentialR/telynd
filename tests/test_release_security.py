@@ -98,7 +98,7 @@ class ArtifactTest(unittest.TestCase):
         # A marker-bearing source file must never execute during validation.
         (root/'Package.swift').write_text('this is not a runnable build manifest')
         git('add','.');git('commit','-m','source');revision=git('rev-parse','HEAD')
-        info={'CFBundleExecutable':'Telynd','CFBundleIdentifier':'com.samueladebayo.telynd','CFBundleName':'Telynd','CFBundleDisplayName':'Telynd','CFBundlePackageType':'APPL','CFBundleIconFile':'Telynd','CFBundleShortVersionString':'0.2.0','CFBundleVersion':'2','LSMinimumSystemVersion':'13.0','NSHighResolutionCapable':True,'NSHumanReadableCopyright':'Synthetic fixture'}
+        info={'CFBundleExecutable':'Telynd','CFBundleIdentifier':'com.samueladebayo.telynd','CFBundleName':'Telynd','CFBundleDisplayName':'Telynd','CFBundlePackageType':'APPL','CFBundleIconFile':'Telynd','CFBundleShortVersionString':'0.2.0','CFBundleVersion':'2','LSMinimumSystemVersion':'13.0','NSHighResolutionCapable':True,'NSHumanReadableCopyright':'Synthetic fixture','NSAppleEventsUsageDescription':'When you choose Use open computer, Telynd reads the front Chrome tab’s address to save your remote desktop connection.'}
         files[ARTIFACT.PREFIX+'Info.plist']=plistlib.dumps(info)
         files[ARTIFACT.PREFIX+'MacOS/Telynd']=struct.pack('<IIII',0xFEEDFACF,0x0100000C,0,2)+b'synthetic header, never executed'
         files[ARTIFACT.PREFIX+'_CodeSignature/CodeResources']=b'synthetic signature metadata'
@@ -133,14 +133,16 @@ class ArtifactTest(unittest.TestCase):
                 self.assertFalse((root/'validated').exists());self.assertFalse((root.parent/'escaped').exists())
 
     def test_tampered_script_wrong_version_and_fixture_metadata_are_rejected(self):
-        for kind in ['script','version','fixture']:
+        for kind in ['script','version','fixture','automation_missing','automation_changed']:
             with self.subTest(kind=kind),repository() as (root,git):
                 files,revision=self.fixture(root,git)
                 if kind=='script': files[ARTIFACT.PREFIX+'Resources/setup-remote.sh']=b'tampered'
                 else:
                     info=plistlib.loads(files[ARTIFACT.PREFIX+'Info.plist'])
                     if kind=='version': info['CFBundleShortVersionString']='9.9.9'
-                    else: info['TelyndFixtureDirectory']='/tmp/preview'
+                    elif kind=='fixture': info['TelyndFixtureDirectory']='/tmp/preview'
+                    elif kind=='automation_missing': info.pop('NSAppleEventsUsageDescription')
+                    else: info['NSAppleEventsUsageDescription']='Unreviewed permission request'
                     files[ARTIFACT.PREFIX+'Info.plist']=plistlib.dumps(info)
                 archive=self.archive(root,files)
                 with self.assertRaises(ValueError): ARTIFACT.validate_and_extract(archive,root/'validated','v0.2.0',revision)

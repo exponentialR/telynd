@@ -15,6 +15,7 @@ import CryptoKit
     @Published var operationNotes: [UUID: String] = [:]
     @Published var recoveryDesktop: Desktop?
     @Published var writeLocked = false
+    @Published private(set) var readingChromeConnection = false
     let configuration: ConfigurationStore
     let fixtureMode: Bool
     var fixtureAppearance: ColorScheme? {
@@ -50,6 +51,10 @@ import CryptoKit
     }
     @discardableResult func save(_ desktop: Desktop) -> Bool {
         guard !writeLocked else { error = ConfigurationError.writeLocked.localizedDescription; return false }
+        var desktop = desktop
+        if let old = desktops.first(where: { $0.id == desktop.id }), old.chromeURL != desktop.chromeURL {
+            desktop.lastLaunch = nil; desktop.userConfirmedConnection = nil
+        }
         var updated = desktops
         if let i = updated.firstIndex(where: { $0.id == desktop.id }) { updated[i] = desktop } else { updated.append(desktop) }
         do {
@@ -85,8 +90,20 @@ import CryptoKit
         _ = updatePreferences { $0.chromeProfileDirectory = profile.directory; $0.chromeProfileEmail = profile.email }
     }
     var profileReady: Bool { (try? ChromeProfiles.selected(in: profiles, preferences: preferences)) != nil }
+    func captureChromeConnection(_ completion: @escaping (Result<String, Error>) -> Void) {
+        guard !readingChromeConnection else { return }
+        guard !fixtureMode else { completion(.failure(ChromeCaptureError.unavailable)); return }
+        readingChromeConnection = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = Result { try ChromeTabReader.read() }
+            DispatchQueue.main.async {
+                self.readingChromeConnection = false
+                completion(result)
+            }
+        }
+    }
     func connect(_ desktop: Desktop) {
-        guard InputValidation.chromeURL(desktop.chromeURL) else { error = "Use a supported Chrome Remote Desktop link."; return }
+        guard desktop.hasDirectConnection else { error = "Save this computer’s individual connection link before connecting. Choose Edit, open the computer in Chrome and copy its address."; return }
         openChrome(desktop.chromeURL) { [weak self] in
             guard let self else { return }
             var item = desktop; item.lastLaunch = Date()
@@ -115,6 +132,7 @@ import CryptoKit
         NSWorkspace.shared.openApplication(at: chrome, configuration: NSWorkspace.OpenConfiguration())
     }
     func check(_ desktop: Desktop, recover: Bool = false) {
+        refreshOperationNotes()
         guard desktop.hostPlatform.usesSSHRecovery else { recoveryDesktop = desktop; return }
         guard !fixtureMode else { error = "Preview data cannot contact SSH hosts."; return }
         guard let target = desktop.target, InputValidation.target(target) else { recoveryDesktop = desktop; return }

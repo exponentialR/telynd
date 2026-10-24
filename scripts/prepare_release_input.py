@@ -49,7 +49,7 @@ def validate_and_extract(archive, destination, tag, revision):
     if not FILES <= data.keys():
         raise ValueError('The app bundle is incomplete')
     info = plistlib.loads(data[PREFIX + 'Info.plist'])
-    required = {'CFBundleExecutable': 'Telynd', 'CFBundleIdentifier': 'com.samueladebayo.telynd', 'CFBundleName': 'Telynd', 'CFBundleDisplayName': 'Telynd', 'CFBundlePackageType': 'APPL', 'CFBundleIconFile': 'Telynd', 'CFBundleShortVersionString': tag[1:], 'LSMinimumSystemVersion': '13.0', 'NSHighResolutionCapable': True}
+    required = {'CFBundleExecutable': 'Telynd', 'CFBundleIdentifier': 'com.samueladebayo.telynd', 'CFBundleName': 'Telynd', 'CFBundleDisplayName': 'Telynd', 'CFBundlePackageType': 'APPL', 'CFBundleIconFile': 'Telynd', 'CFBundleShortVersionString': tag[1:], 'LSMinimumSystemVersion': '13.0', 'NSHighResolutionCapable': True, 'NSAppleEventsUsageDescription': 'When you choose Use open computer, Telynd reads the front Chrome tab’s address to save your remote desktop connection.'}
     if set(info) != set(required) | {'CFBundleVersion', 'NSHumanReadableCopyright'} or any(info.get(key) != value for key, value in required.items()):
         raise ValueError('Unexpected release bundle metadata')
     if not isinstance(info['CFBundleVersion'], str) or not info['CFBundleVersion'].isdecimal():

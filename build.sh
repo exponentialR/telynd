@@ -42,6 +42,7 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
 <key>NSHumanReadableCopyright</key><string>Copyright © 2026 Samuel Adebayo. MIT licence.</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>NSHighResolutionCapable</key><true/>
+<key>NSAppleEventsUsageDescription</key><string>When you choose Use open computer, Telynd reads the front Chrome tab’s address to save your remote desktop connection.</string>
 </dict></plist>
 PLIST
 # Fixture injection exists only in a debug build and cannot affect release settings.
@@ -54,7 +55,7 @@ if [ "$configuration" = debug ] && [ -n "${TELYND_FIXTURE_DIRECTORY:-}" ]; then
   esac
 fi
 xattr -cr "$app"
-codesign --force --deep --sign - "$app"
+codesign --force --deep --entitlements scripts/macos-app.entitlements --sign - "$app"
 codesign --verify --deep --strict "$app"
 mkdir -p "$(dirname "$destination")"
 [ ! -L "$destination" ] || { echo 'Choose the actual application path, not a symlink.'; exit 2; }

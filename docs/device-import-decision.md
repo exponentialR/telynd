@@ -1,6 +1,7 @@
 # Chrome Remote Desktop device import
 
-Decision: retain manual links and Google's device picker for this release (#4).
+Decision: retain Google's device picker with explicit capture of its selected
+computer's tab address, plus manual-link fallback (#4).
 Telynd does not retrieve a Google device inventory or infer a Google device from
 an SSH hostname. Duplicate display names cannot establish that mapping.
 
@@ -39,3 +40,13 @@ work would need its own OAuth/consent design, minimal device metadata, token
 storage and revocation policy, duplicate-name handling, failure tests and
 provider validation. Do not implement it by scraping an authenticated page or
 borrowing Chrome's tokens or client credentials.
+
+The later UI refinement on the same date adds **Use open computer**. After
+opening a computer in Google's UI, the user explicitly requests a fixed Apple
+event that reads only the URL of Chrome's front active tab. macOS Automation
+consent is required; the app validates the exact Google HTTPS session path
+before filling a draft. The user reviews and saves it. This does not retrieve
+an inventory, infer a Google identity from SSH, read page content or change
+the selected Chrome profile. The macOS permission itself permits automation;
+the application code limits its request to the one address. Denial leaves
+manual entry available.

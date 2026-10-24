@@ -32,7 +32,8 @@ security list-keychains -d user -s "$keychain"
 # Package.swift, tagged scripts or the app while these credentials are present.
 version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist")
 [ "$TELYND_RELEASE_TAG" = "v$version" ] || { echo 'Tag and app version differ'; exit 2; }
-codesign --force --options runtime --timestamp --keychain "$keychain" --sign "$DEVELOPER_ID_APPLICATION" "$app"
+# Entitlements come only from this trusted workflow checkout, never the artifact.
+codesign --force --options runtime --entitlements "$PWD/scripts/macos-app.entitlements" --timestamp --keychain "$keychain" --sign "$DEVELOPER_ID_APPLICATION" "$app"
 codesign --verify --deep --strict --verbose=2 "$app"
 # Submit a transport ZIP, staple the app, then recreate the user-facing ZIP.
 ditto -c -k --keepParent "$app" "$work/submission.zip"

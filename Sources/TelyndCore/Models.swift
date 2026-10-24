@@ -15,6 +15,9 @@ public enum InputValidation {
         let pieces = url.path.split(separator: "/", omittingEmptySubsequences: false)
         return pieces.count == 4 && pieces[1] == "access" && pieces[2] == "session" && UUID(uuidString: String(pieces[3])) != nil
     }
+    public static func directChromeURL(_ value: String) -> Bool {
+        chromeURL(value) && URLComponents(string: value)?.path.hasPrefix("/access/session/") == true
+    }
     public static func identityPath(_ value: String) -> Bool {
         value.hasPrefix("/") && !value.contains("\n") && !value.contains("\r") && !value.contains("\0")
     }
@@ -53,6 +56,7 @@ public struct Desktop: Identifiable, Codable, Equatable, Sendable {
         !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && InputValidation.chromeURL(chromeURL)
             && (target == nil || InputValidation.target(target)) && (identityPath == nil || InputValidation.identityPath(identityPath!))
     }
+    public var hasDirectConnection: Bool { InputValidation.directChromeURL(chromeURL) }
 }
 
 public enum GuideStep: Int, Codable, CaseIterable {

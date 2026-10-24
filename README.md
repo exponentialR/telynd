@@ -74,10 +74,14 @@ copied only when the corresponding Telynd file is absent. Existing users retain
 their desktop identities and are not forced through first-run setup. Corrupt or
 future-version settings are preserved and saving is locked until corrected.
 
-Telynd reads only Chrome's local profile names, email labels and directory IDs.
-It does not read cookies, browser passwords, OAuth tokens or remote screen
-contents. Profile selection is not Google authentication. There is no telemetry
-or automatic device import. Supported Google links are checked before launch;
+Telynd reads Chrome's local profile names, email labels and directory IDs.
+The **Use open computer** action additionally requests macOS Automation access
+to Chrome and reads its front tab's address once, only when clicked. macOS's
+permission allows app automation; the fixed reader requests only that URL.
+It does not enumerate tabs or read cookies, browser passwords, OAuth tokens or
+remote screen contents. Manual entry remains available if permission is denied.
+Profile selection is not Google authentication. There is no telemetry or
+Google device-list API integration. Captured and saved Google links are checked before launch;
 SSH and Google device identities are never assumed to be equivalent.
 
 Routine readiness checks are explicit, bounded and read-only. One-time changes

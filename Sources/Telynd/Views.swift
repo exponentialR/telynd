@@ -12,9 +12,10 @@ struct PrimaryButton: ButtonStyle {
 }
 struct Wordmark: View {
     @Environment(\.colorScheme) var scheme
+    var compact = false
     var body: some View {
         if let url = Bundle.main.url(forResource: scheme == .dark ? "telynd-logo-dark" : "telynd-logo-v2", withExtension: "png"), let image = NSImage(contentsOf: url) {
-            Image(nsImage: image).resizable().scaledToFit().frame(width: 230, height: 72, alignment: .leading).accessibilityLabel("Telynd")
+            Image(nsImage: image).resizable().scaledToFit().frame(width: compact ? 155 : 230, height: compact ? 48 : 72, alignment: .leading).accessibilityLabel("Telynd")
         } else { Text("Telynd").font(.largeTitle.bold()) }
     }
 }
@@ -25,20 +26,16 @@ struct ContentView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Wordmark()
+                HStack(spacing: 20) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Wordmark(compact: true)
                         if store.fixtureMode { Text("Preview · synthetic profiles; network actions disabled").font(.caption) }
-                        Text("Your computers. One place to connect and recover.").font(.title3).foregroundStyle(.secondary)
-                        Button { choosingProfile = true } label: {
-                            Label(store.preferences.chromeProfileEmail.isEmpty ? "Choose Chrome profile" : store.preferences.chromeProfileEmail, systemImage: "person.crop.circle")
-                        }.buttonStyle(.link)
                     }
                     Spacer()
-                    VStack(alignment: .trailing, spacing: 12) {
-                        Button { editing = Desktop(name: "") } label: { Label("Add computer", systemImage: "plus") }.controlSize(.large).disabled(store.writeLocked)
-                        Button("Setup guide") { store.refreshProfiles(); store.showGuide = true }.buttonStyle(.link).disabled(store.writeLocked)
-                    }
+                    Button { choosingProfile = true } label: {
+                        Label(store.preferences.chromeProfileEmail.isEmpty ? "Choose Chrome profile" : store.preferences.chromeProfileEmail, systemImage: "person.crop.circle")
+                            .lineLimit(1).truncationMode(.middle)
+                    }.buttonStyle(.borderless).help("Choose the Chrome profile used for connections")
                 }
                 if store.writeLocked {
                     Label("Settings need attention. Your saved files have been preserved; correct them and reopen Telynd before saving.", systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
@@ -54,16 +51,21 @@ struct ContentView: View {
                         Button("Get started") { store.showGuide = true }.buttonStyle(PrimaryButton()).disabled(store.writeLocked)
                     }.frame(maxWidth: .infinity).padding(38)
                 }
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 350), alignment: .top)], alignment: .leading, spacing: 22) {
+                HStack {
+                    Text("Computers").font(.title2.weight(.semibold))
+                    Spacer()
+                    Button { editing = Desktop(name: "") } label: { Label("Add computer", systemImage: "plus") }.disabled(store.writeLocked)
+                }
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 290, maximum: 430), alignment: .top)], alignment: .leading, spacing: 18) {
                     ForEach(store.desktops) { item in DesktopCard(desktop: item) { editing = item } }
                 }
-                VStack(alignment: .leading, spacing: 9) {
-                    Label("Connect first. Recovery is optional.", systemImage: "arrow.triangle.2.circlepath").font(.headline)
-                    Text("Google Chrome Remote Desktop provides the screen connection and handles sign-in and its PIN. Optional host recovery uses platform-specific setup.")
-                    Text("A running service does not prove Google can connect. A sleeping PC, network fault or expired Google authorisation may need separate attention.")
-                }.font(.callout).foregroundStyle(.secondary).padding(22).frame(maxWidth: .infinity, alignment: .leading).background(.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 16))
-            }.padding(30)
-        }.frame(minWidth: 850, minHeight: 650)
+                HStack {
+                    Text("Connections open in Chrome. Recovery is optional.").foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Setup guide") { store.refreshProfiles(); store.showGuide = true }.buttonStyle(.link).disabled(store.writeLocked)
+                }.font(.caption)
+            }.padding(24).frame(maxWidth: 1100, alignment: .leading).frame(maxWidth: .infinity, alignment: .leading)
+        }.frame(minWidth: 680, minHeight: 440)
             .background(Color(nsColor: .windowBackgroundColor))
             .tint(Color(red: 18 / 255, green: 92 / 255, blue: 1))
             .sheet(item: $editing) { DesktopEditor(desktop: $0) }
@@ -79,39 +81,47 @@ struct DesktopCard: View {
     let desktop: Desktop
     let edit: () -> Void
     @State private var now = Date()
+    @State private var detailsExpanded = false
     var observed: HostObservation { store.observations[desktop.id] ?? HostObservation() }
     var title: String {
-        if let report = observed.report { return report.configurationLabel(at: now) }
-        if desktop.target == nil || !desktop.hostPlatform.usesSSHRecovery { return "Connection only · \(desktop.hostPlatform.label)" }
-        if let report = observed.report { return report.configurationLabel(at: now) }
-        return observed.ssh == nil ? "Recovery verification unknown" : "Setup needs attention"
+        if observed.busy { return "Checking recovery…" }
+        if !desktop.hasDirectConnection { return "Connection link needed" }
+        if let report = observed.report { return report.isStale(at: now) ? "Recovery status needs a refresh" : report.configurationLabel(at: now) }
+        if desktop.target == nil || !desktop.hostPlatform.usesSSHRecovery { return "Connection only" }
+        return observed.ssh == nil ? "Recovery not checked" : "Recovery needs attention"
     }
     var body: some View {
-        VStack(alignment: .leading, spacing: 17) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top) {
-                Image(systemName: desktop.symbol).font(.system(size: 25)).foregroundStyle(.blue).frame(width: 50, height: 50).background(.blue.opacity(0.1), in: RoundedRectangle(cornerRadius: 13))
+                Image(systemName: desktop.symbol).font(.system(size: 21)).foregroundStyle(.blue).frame(width: 42, height: 42).background(.blue.opacity(0.1), in: RoundedRectangle(cornerRadius: 11))
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(desktop.name).font(.title2.weight(.semibold))
-                    Text(title).font(.callout).foregroundStyle(.secondary)
+                    Text(desktop.name).font(.headline)
+                    Text(desktop.hostPlatform == .unknown ? title : "\(desktop.hostPlatform.label) · \(title)").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
-                Button(action: edit) { Image(systemName: "slider.horizontal.3") }.buttonStyle(.borderless).accessibilityLabel("Edit \(desktop.name)")
+                Button(action: edit) { Image(systemName: "pencil") }.buttonStyle(.borderless).accessibilityLabel("Edit \(desktop.name)").help("Computer details")
             }
-            if desktop.target != nil || observed.report != nil { StatusDetails(observation: observed, now: now, platform: desktop.hostPlatform) }
-            else { Text("Open your saved Google link. You can set up optional recovery for this computer’s operating system.").font(.callout).foregroundStyle(.secondary).frame(minHeight: 42, alignment: .top) }
-            Button { store.connect(desktop) } label: { Label("Open remote desktop", systemImage: "arrow.up.right.square").frame(maxWidth: .infinity) }.buttonStyle(PrimaryButton())
-            if let launched = desktop.lastLaunch { Text("Last opened in Chrome: \(launched.formatted(date: .abbreviated, time: .shortened))").font(.caption).foregroundStyle(.secondary) }
-            if let note = store.operationNotes[desktop.id] { Text(note).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }
-            Divider()
-            HStack {
-                Button(desktop.target == nil ? "Set up recovery…" : "Recovery settings…") { store.recoveryDesktop = desktop }
-                Spacer()
-                if !desktop.hostPlatform.usesSSHRecovery { Button("Import report") { store.importHostReport(desktop) } }
-                else if desktop.target != nil { Button("Recheck") { store.check(desktop) }.disabled(observed.busy) }
-            }.buttonStyle(.link)
-        }.padding(23).frame(maxWidth: .infinity, alignment: .leading)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
-            .overlay(RoundedRectangle(cornerRadius: 20).stroke(.primary.opacity(0.08)))
+            Button { if desktop.hasDirectConnection { store.connect(desktop) } else { edit() } } label: {
+                Label(desktop.hasDirectConnection ? "Connect" : "Set connection link", systemImage: desktop.hasDirectConnection ? "arrow.up.right" : "link")
+                    .frame(maxWidth: .infinity)
+            }.buttonStyle(PrimaryButton()).disabled(store.writeLocked)
+            DisclosureGroup("Details & recovery", isExpanded: $detailsExpanded) {
+                VStack(alignment: .leading, spacing: 12) {
+                    StatusDetails(observation: observed, now: now, platform: desktop.hostPlatform)
+                    if let launched = desktop.lastLaunch { Text("Last opened: \(launched.formatted(date: .abbreviated, time: .shortened))").font(.caption).foregroundStyle(.secondary) }
+                    if let note = store.operationNotes[desktop.id] { Text(note).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }
+                    Divider()
+                    HStack {
+                        Button("Recovery settings…") { store.recoveryDesktop = desktop }
+                        Spacer()
+                        if !desktop.hostPlatform.usesSSHRecovery { Button("Import report") { store.importHostReport(desktop) } }
+                        else if desktop.target != nil { Button("Recheck") { store.check(desktop) }.disabled(observed.busy) }
+                    }.buttonStyle(.link)
+                }.padding(.top, 10)
+            }.font(.callout)
+        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).stroke(.primary.opacity(0.08)))
             .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { now = $0 }
     }
 }
@@ -171,34 +181,82 @@ struct DesktopEditor: View {
     @Environment(\.dismiss) var dismiss
     @State var desktop: Desktop
     @State private var sshVisible: Bool
+    @State private var recoveryExpanded = false
     init(desktop: Desktop) { _desktop = State(initialValue: desktop); _sshVisible = State(initialValue: desktop.target != nil) }
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             Text("Computer details").font(.title2.bold())
             ComputerFields(desktop: $desktop)
-            Toggle("Configure SSH address (optional)", isOn: $sshVisible)
-            if sshVisible {
-                TextField("SSH address: user@hostname", text: Binding(get: { desktop.target ?? "" }, set: { desktop.target = $0.isEmpty ? nil : $0 }))
-                Text("SSH is used for command-line access and Linux recovery. It is not needed to open a remote desktop.").font(.callout).foregroundStyle(.secondary)
+            Divider()
+            DisclosureGroup("Optional recovery", isExpanded: $recoveryExpanded) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Picker("Operating system", selection: $desktop.hostPlatform) {
+                        ForEach(HostPlatform.allCases) { platform in Text(platform.label).tag(platform) }
+                    }
+                    Toggle("Configure SSH address", isOn: $sshVisible)
+                    if sshVisible {
+                        TextField("SSH address: user@hostname", text: Binding(get: { desktop.target ?? "" }, set: { desktop.target = $0.isEmpty ? nil : $0 }))
+                    }
+                    Text("Linux recovery uses SSH. Mac and Windows use host-local setup. Connection does not require recovery.").font(.caption).foregroundStyle(.secondary)
+                }.padding(.top, 12)
             }
-            HStack { Spacer(); Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction); Button("Save") { if !sshVisible { desktop.target = nil }; if store.save(desktop) { dismiss() } }.keyboardShortcut(.defaultAction).disabled(!desktop.valid) }
+            HStack { Spacer(); Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction); Button("Save") { if !sshVisible { desktop.target = nil }; if store.save(desktop) { dismiss() } }.keyboardShortcut(.defaultAction).disabled(!desktop.valid || !desktop.hasDirectConnection) }
         }.padding(28).frame(width: 640)
     }
 }
 struct ComputerFields: View {
-    @EnvironmentObject var store: AppStore
     @Binding var desktop: Desktop
     var body: some View {
-        VStack(alignment: .leading, spacing: 13) {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Name").font(.subheadline.weight(.medium))
             TextField("Computer name, for example Home PC", text: $desktop.name)
-            Picker("Remote operating system", selection: $desktop.hostPlatform) {
-                ForEach(HostPlatform.allCases) { platform in Text(platform.label).tag(platform) }
+            ConnectionLinkFields(desktop: $desktop)
+        }
+    }
+}
+struct ConnectionLinkFields: View {
+    @EnvironmentObject var store: AppStore
+    @Binding var desktop: Desktop
+    @State private var pasteError: String?
+    @State private var manualEntryExpanded = false
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Connection link").font(.subheadline.weight(.medium))
+            HStack {
+                Button("Choose computer in Chrome") { store.openChrome() }.disabled(!store.profileReady)
+                Button("Use open computer") {
+                    pasteError = nil
+                    store.captureChromeConnection { result in
+                        switch result {
+                        case .success(let link): desktop.chromeURL = link
+                        case .failure(let error): pasteError = error.localizedDescription
+                        }
+                    }
+                }.disabled(store.readingChromeConnection)
             }
-            Text("This selection guides setup. The host must verify its operating system before making recovery changes.").font(.caption).foregroundStyle(.secondary)
-            TextField("Chrome Remote Desktop link", text: $desktop.chromeURL)
-            Text("The default link opens Google’s device picker. For a direct link, open the computer in Chrome Remote Desktop, copy its /access/session/… address, and paste it here.").font(.callout).foregroundStyle(.secondary)
-            Button("Open Google’s device picker") { store.openChrome() }.disabled(!store.profileReady)
-            Link("Need to set up Chrome Remote Desktop first?", destination: URL(string: "https://support.google.com/chrome/answer/1649523")!)
+            if store.readingChromeConnection { ProgressView("Reading Chrome’s open computer…").controlSize(.small) }
+            if let pasteError { Text(pasteError).font(.caption).foregroundStyle(.red) }
+            else if desktop.hasDirectConnection {
+                Text("Connect opens this computer directly in Chrome.").font(.caption).foregroundStyle(.secondary)
+            } else {
+                Text("Open your computer in Chrome, then choose Use open computer. macOS will ask permission for Telynd to read Chrome’s current tab address.").font(.callout).foregroundStyle(.secondary)
+                Link("Chrome Remote Desktop setup", destination: URL(string: "https://support.google.com/chrome/answer/1649523")!).font(.caption)
+            }
+            DisclosureGroup("Enter link manually", isExpanded: $manualEntryExpanded) {
+                VStack(alignment: .leading, spacing: 10) {
+                    TextField("https://remotedesktop.google.com/access/session/…", text: Binding(
+                        get: { desktop.chromeURL == InputValidation.devicePicker || desktop.chromeURL == InputValidation.devicePicker + "/" ? "" : desktop.chromeURL },
+                        set: { desktop.chromeURL = $0.isEmpty ? InputValidation.devicePicker : $0; pasteError = nil }
+                    )).accessibilityLabel("Individual computer connection link")
+                    Button("Paste link") {
+                        guard let value = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), InputValidation.directChromeURL(value) else {
+                            pasteError = "Copy the address after opening your computer in Chrome Remote Desktop."; return
+                        }
+                        desktop.chromeURL = value; pasteError = nil
+                    }
+                    if !InputValidation.chromeURL(desktop.chromeURL) { Text("This is not an individual Google Remote Desktop link.").font(.caption).foregroundStyle(.red) }
+                }.padding(.top, 10)
+            }.font(.callout)
         }
     }
 }
@@ -233,11 +291,16 @@ struct OnboardingGuide: View {
                 case .computer: ComputerFields(desktop: $draft)
                 case .connect:
                     if let desktop = chosen {
-                        Text("Open \(desktop.name) in your selected Chrome profile. Choose the computer in Google if you saved the device-picker link.")
-                        Button("Open remote desktop") { store.connect(desktop) }.buttonStyle(PrimaryButton())
-                        Text("Opening Chrome does not confirm a remote session. You can continue after launching, or record that you connected successfully yourself.").font(.callout).foregroundStyle(.secondary)
-                        if desktop.lastLaunch != nil { Text("Chrome launch recorded.").font(.callout) }
-                        Button("I connected successfully") { var value = desktop; value.userConfirmedConnection = Date(); if store.save(value) { advance(.recovery) } }
+                        if desktop.hasDirectConnection {
+                            Text("Connect to \(desktop.name) in your selected Chrome profile.")
+                            Button("Connect") { store.connect(desktop) }.buttonStyle(PrimaryButton())
+                            Text("Opening Chrome does not confirm a remote session. You can continue after launching, or record that you connected successfully yourself.").font(.callout).foregroundStyle(.secondary)
+                            if desktop.lastLaunch != nil { Text("Chrome launch recorded.").font(.callout) }
+                            Button("I connected successfully") { var value = desktop; value.userConfirmedConnection = Date(); if store.save(value) { advance(.recovery) } }
+                        } else {
+                            ConnectionLinkFields(desktop: $draft)
+                            Button("Save connection link") { _ = saveDraft() }.disabled(!draft.valid || !draft.hasDirectConnection)
+                        }
                     } else { Text("No computer is saved for this guide. Go back to add one.") }
                 case .recovery:
                     Text("Recovery setup depends on the remote computer. Linux uses SSH and a host timer. Mac uses a host-local desktop agent. Windows uses native crash recovery. Each setup explains its permissions and limits.")
@@ -256,14 +319,14 @@ struct OnboardingGuide: View {
                 switch step {
                 case .welcome: Button("Get started") { advance(.profile) }.buttonStyle(PrimaryButton()).keyboardShortcut(.defaultAction)
                 case .profile: Button("Continue") { advance(.computer) }.buttonStyle(PrimaryButton()).keyboardShortcut(.defaultAction).disabled(!store.profileReady)
-                case .computer: Button("Save and continue") { if saveDraft(), store.updatePreferences({ $0.guideDesktopID = draft.id }) { advance(.connect) } }.buttonStyle(PrimaryButton()).keyboardShortcut(.defaultAction).disabled(!draft.valid)
-                case .connect: Button("Continue after opening Chrome") { advance(.recovery) }.keyboardShortcut(.defaultAction).disabled(chosen?.lastLaunch == nil)
+                case .computer: Button("Save and continue") { if saveDraft(), store.updatePreferences({ $0.guideDesktopID = draft.id }) { advance(.connect) } }.buttonStyle(PrimaryButton()).keyboardShortcut(.defaultAction).disabled(!draft.valid || !draft.hasDirectConnection)
+                case .connect: Button("Continue after opening Chrome") { advance(.recovery) }.keyboardShortcut(.defaultAction).disabled(chosen?.lastLaunch == nil || chosen?.hasDirectConnection != true)
                 case .recovery: Button("Finish with connection-only access") { finish() }.buttonStyle(PrimaryButton()).keyboardShortcut(.defaultAction)
                 case .finished: Button("Done") { store.showGuide = false }.buttonStyle(PrimaryButton())
                 }
             }
         }.padding(30).frame(width: 730, height: 560)
-            .onAppear { draft = store.preferences.guideDraft ?? chosen ?? draft }
+            .onAppear { draft = step == .connect ? (chosen ?? draft) : (store.preferences.guideDraft ?? chosen ?? draft) }
             .onChange(of: draft) { value in if step == .computer { _ = store.updatePreferences { $0.guideDraft = value } } }
     }
 }
@@ -337,7 +400,7 @@ struct RecoverySheet: View {
 @main struct TelyndApp: App {
     @StateObject private var store = AppStore()
     var body: some Scene {
-        WindowGroup { ContentView().environmentObject(store).preferredColorScheme(store.fixtureAppearance) }.windowStyle(.hiddenTitleBar).defaultSize(width: 1040, height: 780)
+        WindowGroup { ContentView().environmentObject(store).preferredColorScheme(store.fixtureAppearance) }.windowStyle(.hiddenTitleBar).defaultSize(width: 900, height: 560)
             .commands { CommandGroup(after: .appInfo) { Button("Setup guide") { store.showGuide = true } } }
     }
 }
