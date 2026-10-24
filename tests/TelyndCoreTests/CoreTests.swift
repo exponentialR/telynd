@@ -36,7 +36,9 @@ final class CoreTests: XCTestCase {
     func testPersistenceAndPrivatePermissions() throws {
         try withStore { store, dir in
             let first = Desktop(name: "Home"), second = Desktop(name: "Lab")
-            try store.saveDesktops([first]); try store.saveDesktops([first, second])
+            try store.saveDesktops([first])
+            try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: dir.appendingPathComponent("desktops.json").path)
+            try store.saveDesktops([first, second])
             XCTAssertEqual(try store.loadDesktops(), [first, second])
             XCTAssertEqual((try FileManager.default.attributesOfItem(atPath: dir.appendingPathComponent("desktops.json").path)[.posixPermissions] as? NSNumber)?.intValue, 0o600)
         }

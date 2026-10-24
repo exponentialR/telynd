@@ -86,7 +86,8 @@ saved target/key. A prepared action cannot inherit an old successful receipt.
 Root helpers use a fixed system PATH. The installer serialises setup operations, verifies surviving recorded files before retry and refuses
 unknown files or content drift. Application replacement validates a fresh whole
 bundle before swapping it, preventing obsolete resources and Finder metadata
-from surviving an update. Unfinished guide drafts are private and distinct
+from surviving an update. Settings writes also reapply owner-only permissions
+when replacing an older file with broader metadata. Unfinished guide drafts are private and distinct
 from saved valid desktops.
 
 ## Concrete remaining limits
