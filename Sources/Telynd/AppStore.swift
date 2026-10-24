@@ -207,13 +207,9 @@ import CryptoKit
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             let handle = try FileHandle(forReadingFrom: url); defer { try? handle.close() }
-            var data = try handle.read(upToCount: 32769) ?? Data()
-            guard data.count <= 32768 else { throw HostReportError.invalid }
-            // Windows PowerShell 5.1 redirects Unicode text as UTF-16LE.
-            if data.starts(with: [0xff, 0xfe]) || data.starts(with: [0xfe, 0xff]) {
-                guard let text = String(data: data, encoding: .utf16), let utf8 = text.data(using: .utf8) else { throw HostReportError.invalid }
-                data = utf8
-            } else if data.starts(with: [0xef, 0xbb, 0xbf]) { data.removeFirst(3) }
+            let data = try handle.read(upToCount: 32769) ?? Data()
+            guard let current = desktops.first(where: { $0.id == desktop.id }), current.hostPlatform == desktop.hostPlatform,
+                  current.target == desktop.target, current.identityPath == desktop.identityPath else { throw HostReportError.mismatch }
             let report = try LocalHostReport.parse(data, desktop: desktop).readiness
             hostChecks.invalidate(desktop.id)
             if let request = hostChecks.begin(desktop.id, recovering: false) {

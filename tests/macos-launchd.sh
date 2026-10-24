@@ -5,7 +5,9 @@ set -euo pipefail
 [ "$(uname -s)" = Darwin ] && [ "$(id -u)" -ne 0 ] || exit 1
 domain="gui/$(id -u)"
 launchctl print "$domain" >/dev/null 2>&1 || { echo 'No GUI launchd domain: native integration NOT EXECUTED.'; exit 77; }
-root=$(mktemp -d /private/tmp/telynd-launchd.XXXXXXXX)
+# The production ancestry guard intentionally rejects world-writable /tmp.
+# Use macOS' private per-user temporary hierarchy, as the file fixtures do.
+root=$(python3 -c 'import pathlib,tempfile; print(pathlib.Path(tempfile.mkdtemp(prefix="telynd-launchd-")).resolve())')
 suffix=$(uuidgen | tr '[:upper:]' '[:lower:]')
 google_label="com.telynd.fixture.host.$suffix"
 recovery_label="com.telynd.fixture.recovery.$suffix"

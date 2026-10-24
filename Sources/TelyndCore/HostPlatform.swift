@@ -37,7 +37,14 @@ public struct LocalHostReport: Codable, Equatable {
     public let permissions: String
     public let outcome: String
 
-    public static func parse(_ data: Data, desktop: Desktop, now: Date = Date()) throws -> LocalHostReport {
+    public static func parse(_ input: Data, desktop: Desktop, now: Date = Date()) throws -> LocalHostReport {
+        guard input.count <= 32768 else { throw HostReportError.invalid }
+        var data = input
+        // Windows PowerShell 5.1 redirects text as BOM-prefixed UTF-16LE.
+        if data.starts(with: [0xff, 0xfe]) || data.starts(with: [0xfe, 0xff]) {
+            guard let text = String(data: data, encoding: .utf16), let utf8 = text.data(using: .utf8) else { throw HostReportError.invalid }
+            data = utf8
+        } else if data.starts(with: [0xef, 0xbb, 0xbf]) { data.removeFirst(3) }
         guard data.count <= 16384, let report = try? JSONDecoder().decode(Self.self, from: data), report.schemaVersion == 1,
               [.macos, .windows].contains(report.platform), report.checkedAt.isFinite, report.checkedAt > 0,
               [report.osVersion, report.architecture].allSatisfy({ !$0.isEmpty && $0.utf8.count <= 128 && !$0.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) }),
