@@ -3,6 +3,7 @@
 set -euo pipefail
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
+[ "$(uname -s)" = Linux ] || { echo "This recovery installer is for Linux." >&2; exit 2; }
 # Check ancestors from / downwards, before traversing or writing a child.
 # Kept inline because these scripts are sent to Linux as standalone payloads.
 telynd_secure_directories() {

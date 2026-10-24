@@ -38,7 +38,7 @@ def repository():
 def rules():
     main = {'target':'branch','enforcement':'active','bypass_actors':[], 'conditions':{'ref_name':{'include':['refs/heads/main'],'exclude':[]}},'rules':[
         {'type':'pull_request','parameters':{'required_approving_review_count':1,'dismiss_stale_reviews_on_push':True}},
-        {'type':'required_status_checks','parameters':{'strict_required_status_checks_policy':True,'required_status_checks':[{'context':'mac-app'},{'context':'recovery'}]}}]}
+        {'type':'required_status_checks','parameters':{'strict_required_status_checks_policy':True,'required_status_checks':[{'context':'mac-app'},{'context':'recovery'},{'context':'windows-recovery'}]}}]}
     tag = {'target':'tag','enforcement':'active','bypass_actors':[], 'conditions':{'ref_name':{'include':['refs/tags/v*'],'exclude':[]}},'rules':[{'type':'update'},{'type':'deletion'}]}
     return main, tag
 

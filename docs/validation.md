@@ -1,5 +1,90 @@
 # Onboarding validation record
 
+## Cross-platform recovery implementation, 24 October 2026
+
+The #14 work extends the existing Mac client with platform selection and Mac/
+Windows host-local developer kits. It does not establish signed standalone host
+installation, novice usability or a working session on registered Google hosts.
+The earlier Linux/onboarding evidence below remains scoped to that implementation.
+
+| Environment | Evidence | Practical limit |
+| --- | --- | --- |
+| Local macOS 26.4.1 / ARM64 | Swift migration/report tests; Mac file/command fixtures; native SwiftUI Windows kit/report-import journey | Synthetic identities and reports; no personal host mutations |
+| CI macOS runner, reported 26.6.2 / 25G83 / ARM64 | Real launchd bootstrap, idempotent start, active preservation, deliberate disablement, persistent Telynd disable and verified removal against an ad-hoc signed synthetic host | Fixture replaces Google's identity/root-ownership provider; no Google registration or privacy approval |
+| CI Windows Server 2025 / 10.0.26100 / AMD64 | Real SCM service, native policy/security-descriptor queries, policy apply/read-back, retry, drift refusal, ACL refusal, restoration and bounded crash recovery | Synthetic service; Only the synthetic root and signature query are substituted; production host validation runs against real file, registry and service ACLs; no Windows 11 Google-host installation |
+| Windows PowerShell 5.1 and PowerShell 7 on that runner | Same native service lifecycle under both runtimes | Does not establish every desktop Windows version or enterprise policy |
+| Ubuntu/systemd CI | Existing real Linux install/authorisation/ancestry/removal regression coverage | Synthetic Chrome service; real Google pilot remains #13 |
+
+The first complete passing cross-platform PR run is
+[Checks 40100653327](https://github.com/exponentialR/telynd/actions/runs/40100653327)
+at source `ccefab4f944bc9337af1021f5c58f423cd674f1f`. Subsequent commits refine
+UI copy, bounded regular-file report reads, native-test output isolation and
+additional service-security coverage; inspect the PR's current checks before merging.
+
+Current local coverage: 30 Swift tests and 42 discovered Python tests (41 run on
+macOS, one Linux-only flock test skipped; Linux skips ten Mac-only tests).
+Windows and native launchd tests are separate disposable CI scripts. File
+fixtures replace fixed command/path providers only in copies; product scripts
+have no testing bypass parameter or configurable service target.
+
+Native UI inspection used a debug app under a temporary directory, with three
+synthetic desktops. Mac and Windows recovery sheets show local-kit instructions
+without SSH setup. Importing the Windows fixture displays crash-only scope,
+host timestamp, unknown live identity and Google availability; no Linux timer or
+SSH success is inferred. Layout was visually inspected. These checks do not
+constitute a novice study or full VoiceOver walkthrough. The normal installed
+app was not restored and the user's backed-up desktops/settings remain separate.
+
+Self-review corrected persistent Mac disablement, foreign launch-label refusal,
+fail-closed enablement vocabulary across launchctl versions, unknown service
+states, safe parent ACL interpretation, PowerShell optional-string marshalling
+and atomic ledger replacement. Completed Mac removal no longer fails merely
+because Google's installation is unhealthy. Read-only inspection of an existing
+Google Mac bundle refused a damaged sealed subcomponent; it was not repaired or
+used for a live recovery test. This is implementer self-review, not an independent
+security audit.
+
+### Critical-review follow-up
+
+The follow-up fixes preserve Windows hosts intentionally stopped by Google:
+Manual and Disabled modes remain stopped, and setup/manual recovery require
+Automatic mode. The Windows fixture now executes the production host validator
+with only its synthetic installation root/signature provider substituted. It
+exercises rejected launch paths/accounts, invalid signatures/publishers, writable
+executables, registry keys and service DACLs, then verifies safe restoration.
+This exposed and corrected a real Windows PowerShell 5.1 registry-provider lookup
+failure that the earlier whole-validator substitution had hidden.
+
+The Mac kit uses a native descriptor lock that releases after process death;
+fixtures prove concurrent refusal, partial readiness while busy and recovery
+after SIGKILL. Legacy directory locks remain fail-closed with partial readiness.
+Unsupported native locking is refused before helper/agent installation. Review
+also found that malformed retry state could block ticks while reporting ready:
+checks now report partial readiness, and state updates use an atomic replacement.
+Local follow-up validation passed 30 Swift tests and 42 discovered Python tests
+(41 run on macOS, one Linux-only skip). Native Windows and launchd verification
+remain separate disposable CI checks; consult the PR's final source checks.
+
+### Real-host evidence still required
+
+Keep #16/#17 open for real installed Google hosts and their signing/distribution
+criteria, #18 for Mac/Windows operational validation, #13 for the Linux pilot
+and #11 for signed Mac client browser-download testing. Before a disruptive
+test, approve the specific non-critical host and establish independent access.
+Record the client/helper revisions, OS/architecture, Google version, actual
+permissions/setup prompts, failure trigger, start attempts and separately
+confirmed Google reconnection. Repeat with the controlling Mac closed; verify
+intentional disablement, active-session preservation, updates and removal.
+Restore the agreed host state. Publish only sanitised outcomes and failures.
+
+Windows orderly-stop recovery is explicitly excluded from automatic crash
+recovery. Mac recovery before login, automatic privacy approval, Intel/earlier
+Mac runtime support, Windows desktop hardware coverage, and ordinary standalone
+signed kit installation are unverified. Imported snapshots do not authenticate
+the host or current state and cannot authorise remote mutations.
+
+---
+
 Validation date: 24 October 2026. This is engineering verification by the
 implementer, including self-review. It is not a study of independent novice
 users and does not establish usability timings or a live Google connection.

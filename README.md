@@ -7,11 +7,12 @@
 
 A native macOS app that keeps your remote computers in one place. Choose your
 Chrome profile, save a computer and open Google Chrome Remote Desktop. SSH and
-Linux service recovery are optional.
+platform-specific service recovery are optional.
 
 Google provides the remote screen connection and handles sign-in and its PIN.
-Telynd adds a launcher and an optional Linux timer that starts an enabled Chrome
-host service if it stops or fails. Service status does not prove Google can
+Telynd adds a launcher and optional host recovery. Linux uses a timer; new Mac
+and Windows developer kits use a user launch agent and native crash recovery
+respectively, pending real-host validation. Service status does not prove Google can
 connect. Recovery cannot wake a sleeping PC or fix expired Google authorisation.
 
 **Early developer preview:** no signed public download is available yet. The
@@ -21,6 +22,8 @@ are released under the [MIT licence](LICENSE).
 
 - [Connect your first computer](docs/quick-start.md)
 - [Optional SSH and Linux recovery, troubleshooting and uninstall](docs/recovery.md)
+- [Mac and Windows recovery kits and their limits](docs/platform-recovery.md)
+- [Host recovery architecture](docs/host-recovery-design.md)
 - [Validation evidence and known gaps](docs/validation.md)
 - [Device-import research decision](docs/device-import-decision.md)
 - [Brand assets and logo](assets/branding/README.md)
@@ -42,7 +45,7 @@ The local build is ad-hoc signed and targets macOS 13+. Local runtime validation
 covers macOS 26 / ARM64. Earlier macOS versions and Intel hardware are not yet
 validated. The installed app needs no Python or third-party runtime. Google
 Chrome is needed for screen connections; an SSH key is needed only for optional
-SSH access and recovery. Tailscale is an optional existing network route.
+Linux SSH access and recovery. Mac/Windows kits run locally on their hosts. Tailscale is an optional existing network route.
 
 ## Code map
 
@@ -55,7 +58,10 @@ SSH access and recovery. Tailscale is an optional existing network route.
 | `scripts/authorise-remote.sh` | Fixed Linux public-key installer; stdin data, private files and preserved restrictions |
 | `scripts/setup-remote.sh` | Root-owned fixed helpers, timer, narrow sudoers and verification record |
 | `scripts/uninstall-remote.sh` | Explicit verified disable/uninstall |
-| `tests/` | Swift core tests, shell protocol/decision fixtures and disposable Linux integration |
+| `scripts/macos-recovery.sh` | Host-local signed-in Mac agent and bounded recovery |
+| `scripts/windows-recovery.ps1` | Host-local native crash policy with verified restoration |
+| `scripts/WindowsServicePolicy.cs` | Windows SCM policy/security adapter |
+| `tests/` | Swift core tests, platform fixtures and disposable Linux/launchd/SCM integration |
 | `build.sh` | Build and assemble a locally signed ARM64 app |
 | `scripts/release-macos.sh` | Credential-gated signing, notarisation and versioned release assets |
 

@@ -48,8 +48,8 @@ def validate_rules(main_rules, tag_rules):
     contexts = {item.get('context') for item in checks.get('required_status_checks', [])}
     if pr.get('required_approving_review_count', 0) < 1 or not pr.get('dismiss_stale_reviews_on_push'):
         raise PolicyError('Main must require review approval and dismiss stale approvals')
-    if not {'mac-app', 'recovery'} <= contexts or not checks.get('strict_required_status_checks_policy'):
-        raise PolicyError('Main must require current mac-app and recovery checks')
+    if not {'mac-app', 'recovery', 'windows-recovery'} <= contexts or not checks.get('strict_required_status_checks_policy'):
+        raise PolicyError('Main must require current mac-app, recovery and windows-recovery checks')
     if not {'update', 'deletion'} <= {r['type'] for r in tag_rules.get('rules', [])}:
         raise PolicyError('Release tags must block updates and deletion')
 

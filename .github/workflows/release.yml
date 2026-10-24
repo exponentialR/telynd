@@ -59,6 +59,26 @@ jobs:
       - run: sudo env TELYND_DISPOSABLE_LINUX=1 bash tests/linux-authorisation.sh
       - run: sudo env TELYND_DISPOSABLE_LINUX=1 bash tests/linux-integration.sh
 
+  windows:
+    needs: provenance
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.provenance.outputs.revision }}
+          persist-credentials: false
+      - name: Test native service policy without release credentials
+        shell: powershell
+        env:
+          TELYND_DISPOSABLE_WINDOWS: '1'
+        run: ./tests/windows-policy.ps1
+      - name: Test PowerShell 7 without release credentials
+        shell: pwsh
+        env:
+          TELYND_DISPOSABLE_WINDOWS: '1'
+        run: ./tests/windows-policy.ps1
+
   build:
     needs: provenance
     runs-on: macos-latest
@@ -74,6 +94,7 @@ jobs:
         run: |
           swift test
           python3 -m unittest discover -s tests -v
+          TELYND_DISPOSABLE_MACOS=1 bash tests/macos-launchd.sh
           for script in scripts/*.sh scripts/*.command tests/*.sh build.sh; do bash -n "$script"; done
           bash build.sh
           ditto --norsrc --noextattr -c -k --keepParent build/Telynd.app build/release-input.zip
@@ -86,7 +107,7 @@ jobs:
           retention-days: 3
 
   signed-draft:
-    needs: [provenance, linux, build]
+    needs: [provenance, linux, windows, build]
     runs-on: macos-latest
     timeout-minutes: 45
     environment: macos-release

@@ -59,7 +59,7 @@ struct ContentView: View {
                 }
                 VStack(alignment: .leading, spacing: 9) {
                     Label("Connect first. Recovery is optional.", systemImage: "arrow.triangle.2.circlepath").font(.headline)
-                    Text("Google Chrome Remote Desktop provides the screen connection and handles sign-in and its PIN. Telynd can also recover an enabled Linux Chrome host service if it stops or fails.")
+                    Text("Google Chrome Remote Desktop provides the screen connection and handles sign-in and its PIN. Optional host recovery uses platform-specific setup.")
                     Text("A running service does not prove Google can connect. A sleeping PC, network fault or expired Google authorisation may need separate attention.")
                 }.font(.callout).foregroundStyle(.secondary).padding(22).frame(maxWidth: .infinity, alignment: .leading).background(.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 16))
             }.padding(30)
@@ -81,7 +81,8 @@ struct DesktopCard: View {
     @State private var now = Date()
     var observed: HostObservation { store.observations[desktop.id] ?? HostObservation() }
     var title: String {
-        if desktop.target == nil { return "Connection only" }
+        if let report = observed.report { return report.configurationLabel(at: now) }
+        if desktop.target == nil || !desktop.hostPlatform.usesSSHRecovery { return "Connection only · \(desktop.hostPlatform.label)" }
         if let report = observed.report { return report.configurationLabel(at: now) }
         return observed.ssh == nil ? "Recovery verification unknown" : "Setup needs attention"
     }
@@ -96,8 +97,8 @@ struct DesktopCard: View {
                 Spacer()
                 Button(action: edit) { Image(systemName: "slider.horizontal.3") }.buttonStyle(.borderless).accessibilityLabel("Edit \(desktop.name)")
             }
-            if desktop.target != nil { StatusDetails(observation: observed, now: now) }
-            else { Text("Open your saved Google link. You can add optional Linux recovery later.").font(.callout).foregroundStyle(.secondary).frame(minHeight: 42, alignment: .top) }
+            if desktop.target != nil || observed.report != nil { StatusDetails(observation: observed, now: now, platform: desktop.hostPlatform) }
+            else { Text("Open your saved Google link. You can set up optional recovery for this computer’s operating system.").font(.callout).foregroundStyle(.secondary).frame(minHeight: 42, alignment: .top) }
             Button { store.connect(desktop) } label: { Label("Open remote desktop", systemImage: "arrow.up.right.square").frame(maxWidth: .infinity) }.buttonStyle(PrimaryButton())
             if let launched = desktop.lastLaunch { Text("Last opened in Chrome: \(launched.formatted(date: .abbreviated, time: .shortened))").font(.caption).foregroundStyle(.secondary) }
             if let note = store.operationNotes[desktop.id] { Text(note).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }
@@ -105,7 +106,8 @@ struct DesktopCard: View {
             HStack {
                 Button(desktop.target == nil ? "Set up recovery…" : "Recovery settings…") { store.recoveryDesktop = desktop }
                 Spacer()
-                if desktop.target != nil { Button("Recheck") { store.check(desktop) }.disabled(observed.busy) }
+                if !desktop.hostPlatform.usesSSHRecovery { Button("Import report") { store.importHostReport(desktop) } }
+                else if desktop.target != nil { Button("Recheck") { store.check(desktop) }.disabled(observed.busy) }
             }.buttonStyle(.link)
         }.padding(23).frame(maxWidth: .infinity, alignment: .leading)
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
@@ -116,22 +118,29 @@ struct DesktopCard: View {
 struct StatusDetails: View {
     let observation: HostObservation
     var now = Date()
+    var platform: HostPlatform = .unknown
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             if observation.busy { ProgressView("Checking readiness…").controlSize(.small) }
             else {
-                Text("SSH: \(observation.ssh == .ready ? "access verified" : "not verified")")
+                if observation.report?.imported == true {
+                    Text("Evidence: imported host snapshot · identity not verified")
+                    Text("Host: \(observation.report?.values["os"] ?? "unknown") \(observation.report?.values["os_version"] ?? "")")
+                    Text("Recovery scope: \(observation.report?.values["recovery_scope"] ?? "unknown")")
+                    if platform == .macos { Text("Privacy permissions: unknown — review on the host") }
+                } else if platform.usesSSHRecovery { Text("SSH: \(observation.ssh == .ready ? "access verified" : "not verified")") }
+                else { Text("Evidence: no imported host snapshot") }
                 Text("Chrome service: \(observation.report?.serviceLabel ?? "unknown")")
-                Text("Recovery timer: \(observation.report?.values["timer"] ?? "unknown")")
+                if platform.usesSSHRecovery && observation.report?.imported != true { Text("Recovery timer: \(observation.report?.values["timer"] ?? "unknown")") }
                 Text("Google connection: not verified by Telynd")
                 if let date = observation.checkedAt { Text("Checked \(date.formatted(date: .omitted, time: .shortened))\(now.timeIntervalSince(date) > 300 ? " · stale — recheck" : "")") }
                 if let report = observation.report {
                     if let enabled = report.values["chrome_enabled"], !["enabled", "enabled-runtime"].contains(enabled) { Text("Recovery leaves a host that is not enabled alone. Ask the administrator to review its intended state.") }
                     if report.values["service_loaded"] == "not-found" { Text("Set up the Linux Chrome host for this account using Google’s guide, then recheck.") }
                     if let missing = report.values["missing_tools"], !missing.isEmpty { Text("Ask the host administrator to provide: \(missing). Recheck afterwards.") }
-                    if !report.supported { Text("Keep connection-only access; recovery needs Linux with systemd.") }
+                    if !report.supported { Text("Keep connection-only access. Review the selected operating system and its recovery instructions.") }
                 }
-                Text(observation.note)
+                Text(observation.note).fixedSize(horizontal: false, vertical: true)
             }
         }.font(.caption).foregroundStyle(.secondary).textSelection(.enabled).accessibilityElement(children: .contain)
     }
@@ -182,6 +191,10 @@ struct ComputerFields: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 13) {
             TextField("Computer name, for example Home PC", text: $desktop.name)
+            Picker("Remote operating system", selection: $desktop.hostPlatform) {
+                ForEach(HostPlatform.allCases) { platform in Text(platform.label).tag(platform) }
+            }
+            Text("This selection guides setup. The host must verify its operating system before making recovery changes.").font(.caption).foregroundStyle(.secondary)
             TextField("Chrome Remote Desktop link", text: $desktop.chromeURL)
             Text("The default link opens Google’s device picker. For a direct link, open the computer in Chrome Remote Desktop, copy its /access/session/… address, and paste it here.").font(.callout).foregroundStyle(.secondary)
             Button("Open Google’s device picker") { store.openChrome() }.disabled(!store.profileReady)
@@ -215,7 +228,7 @@ struct OnboardingGuide: View {
                 switch step {
                 case .welcome:
                     Text("Telynd keeps your remote computers in one place. Google Chrome Remote Desktop provides the screen connection and handles its sign-in and PIN.")
-                    Text("First, choose Chrome and save a computer. Optional Linux recovery can be configured afterwards. You do not need SSH or administrator access to make your first connection.").foregroundStyle(.secondary)
+                    Text("First, choose Chrome and save a computer. Optional recovery can be configured afterwards for your remote computer’s operating system. You do not need SSH or administrator access to make your first connection.").foregroundStyle(.secondary)
                 case .profile: ProfilePicker()
                 case .computer: ComputerFields(desktop: $draft)
                 case .connect:
@@ -227,11 +240,11 @@ struct OnboardingGuide: View {
                         Button("I connected successfully") { var value = desktop; value.userConfirmedConnection = Date(); if store.save(value) { advance(.recovery) } }
                     } else { Text("No computer is saved for this guide. Go back to add one.") }
                 case .recovery:
-                    Text("On supported Linux computers, Telynd can start the Chrome host service if it stops or fails. This needs a separate SSH authorisation and one-time administrator approval.")
+                    Text("Recovery setup depends on the remote computer. Linux uses SSH and a host timer. Mac uses a host-local desktop agent. Windows uses native crash recovery. Each setup explains its permissions and limits.")
                     Text("Recovery cannot fix a sleeping PC, network failure or expired Google authorisation. You can finish now and add recovery from the computer’s card later.").foregroundStyle(.secondary)
                     Button("Set up optional recovery") { finish(recovery: true) }.disabled(chosen == nil)
                 case .finished:
-                    Text("Your computers and Chrome profile are saved. Open a card to connect, or use Recovery settings when you want to configure Linux recovery.")
+                    Text("Your computers and Chrome profile are saved. Open a card to connect, or use Recovery settings when you want to configure recovery for that computer.")
                 }
             }.frame(maxWidth: .infinity, alignment: .leading)
             Spacer(minLength: 12)
@@ -258,21 +271,39 @@ struct RecoverySheet: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.dismiss) var dismiss
     @State var desktop: Desktop
+    @State private var platform: HostPlatform = .unknown
     @State private var target = ""
     @State private var identity = ""
     @State private var now = Date()
     var observed: HostObservation { store.observations[desktop.id] ?? HostObservation() }
     var current: Desktop { store.desktops.first(where: { $0.id == desktop.id }) ?? desktop }
     func saveDetails() -> Bool {
-        var value = current; value.target = target.isEmpty ? nil : target
+        var value = current; value.hostPlatform = platform
+        if !platform.usesSSHRecovery { return store.save(value) }
+        value.target = target.isEmpty ? nil : target
         value.identityPath = (identity as NSString).expandingTildeInPath
         return store.save(value)
     }
-    var detailsSaved: Bool { target == current.target && (identity as NSString).expandingTildeInPath == (current.identityPath ?? store.defaultIdentity) }
+    var detailsSaved: Bool { platform == current.hostPlatform && target == current.target && (identity as NSString).expandingTildeInPath == (current.identityPath ?? store.defaultIdentity) }
     var valid: Bool { InputValidation.target(target) && InputValidation.identityPath((identity as NSString).expandingTildeInPath) }
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text("Recovery for \(desktop.name)").font(.title2.bold())
+            Picker("Remote operating system", selection: $platform) {
+                ForEach(HostPlatform.allCases) { item in Text(item.label).tag(item) }
+            }
+            if !platform.usesSSHRecovery {
+                Text("Recovery is set up locally on the remote computer. Export its kit, transfer it to that computer and follow the README. No inbound SSH is required. These host kits are development previews awaiting real-host validation and distribution signing.").font(.callout).foregroundStyle(.secondary)
+                Text(platform == .macos ? "Mac: recovery runs only in a signed-in desktop session, with bounded start attempts. Grant Google’s screen/control permissions on that Mac when required." : "Windows: native crash recovery with bounded restart attempts. An orderly stop is not automatically recovered. Administrator approval is needed to change or restore the service’s recovery policy.").font(.callout)
+                HStack {
+                    Button("Save operating system") { _ = saveDetails() }
+                    Button("Export recovery kit…") { store.exportRecoveryKit(current) }.disabled(platform != current.hostPlatform)
+                    Button("Import host report…") { store.importHostReport(current) }.disabled(platform != current.hostPlatform)
+                }
+                Text("Follow the kit’s README to check, enable or remove recovery on the remote computer. Import a fresh report after changes.").font(.caption).foregroundStyle(.secondary)
+                StatusDetails(observation: observed, now: now, platform: current.hostPlatform)
+                if let note = store.operationNotes[desktop.id] { Text(note).font(.callout).foregroundStyle(.secondary) }
+            } else {
             Text("Optional recovery supports Linux with systemd and an existing per-account Chrome host service. Other computers can remain connection-only. An existing reachable SSH route is needed; Tailscale is optional.").font(.callout).foregroundStyle(.secondary)
             TextField("SSH account and host, for example researcher@workstation.example", text: $target)
             HStack { TextField("Private key path", text: $identity); Button("Choose key…") { let panel = NSOpenPanel(); panel.canChooseDirectories = false; panel.showsHiddenFiles = true; if panel.runModal() == .OK, let url = panel.url { identity = url.path } } }
@@ -280,7 +311,7 @@ struct RecoverySheet: View {
                 Button("Save and check readiness") { if saveDetails() { store.check(current) } }.disabled(!valid || observed.busy)
                 Button("SSH Terminal") { if saveDetails() { store.terminal(current, action: "connect") } }.disabled(!valid)
             }
-            StatusDetails(observation: observed, now: now)
+            StatusDetails(observation: observed, now: now, platform: current.hostPlatform)
             if let note = store.operationNotes[desktop.id] { Text(note).font(.callout).foregroundStyle(.secondary).textSelection(.enabled) }
             Divider()
             Text("Each action explains its scope before opening Terminal. Enter login and administrator passwords directly there. No password is saved by Telynd.").font(.caption).foregroundStyle(.secondary)
@@ -295,9 +326,10 @@ struct RecoverySheet: View {
                 Button("Disable timer…") { store.terminal(current, action: "disable") }.disabled(!valid || !detailsSaved || current.target == nil || observed.busy)
                 Button("Uninstall recovery…") { store.terminal(current, action: "uninstall") }.disabled(!valid || !detailsSaved || current.target == nil || observed.busy)
             }
+            }
             HStack { Spacer(); Button("Done") { dismiss() }.keyboardShortcut(.defaultAction) }
         }.padding(28).frame(width: 800)
-            .onAppear { target = current.target ?? ""; identity = current.identityPath ?? store.defaultIdentity }
+            .onAppear { platform = current.hostPlatform; target = current.target ?? ""; identity = current.identityPath ?? store.defaultIdentity }
             .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { now = $0 }
     }
 }

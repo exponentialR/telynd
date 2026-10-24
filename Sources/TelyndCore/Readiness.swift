@@ -14,11 +14,26 @@ public struct ReadinessReport: Equatable {
     public func accepts(exitCode: Int32, recoveryRequested: Bool) -> Bool {
         (exitCode == 0 || (recoveryRequested && [3, 4].contains(exitCode))) && values["ssh"] == "ready" && values["check"] == "complete"
     }
-    public var supported: Bool { values["os"] == "linux" && values["systemd"] == "available" }
-    public var recoveryEnabled: Bool { supported && values["installation"] == "verified" && values["timer"] == "active" && values["timer_enabled"] == "enabled" }
+    public var imported: Bool { values["origin"] == "import" }
+    public var supported: Bool { imported ? ["macos", "windows"].contains(values["os"] ?? "") && values["recovery_scope"] != "unavailable" : values["os"] == "linux" && values["systemd"] == "available" }
+    public var recoveryEnabled: Bool {
+        guard supported && values["installation"] == "verified" else { return false }
+        return imported ? values["chrome_enabled"] == "enabled" : values["timer"] == "active" && values["timer_enabled"] == "enabled"
+    }
     public func isStale(at date: Date = Date()) -> Bool { date.timeIntervalSince(checkedAt) > 300 }
     public func configurationLabel(at date: Date = Date()) -> String {
         if isStale(at: date) { return "Verification is stale" }
+        if imported {
+            if values["permissions"] == "needs-attention" { return "Host permissions need attention" }
+            if values["service"] == "missing" { return "Chrome host service not found" }
+            if values["chrome_enabled"] == "disabled" { return "Chrome host intentionally disabled" }
+            if values["installation"] == "drift" || values["installation"] == "partial" { return "Recovery setup needs attention" }
+            if values["installation"] == "disabled" { return "Recovery disabled · imported" }
+            if values["installation"] == "missing" { return "Recovery not configured · imported" }
+            if recoveryEnabled { return values["recovery_scope"] == "crash-only" ? "Crash recovery configured · imported" : "Recovery configured · imported" }
+            return "Host recovery not verified · imported"
+        }
+        if values["os"] == "mismatch" { return "Host operating system does not match" }
         if values["ssh"] != "ready" { return "SSH setup needs attention" }
         if !supported { return "Connection only — recovery unsupported" }
         if values["service_loaded"] == "not-found" { return "Chrome host service not found" }
@@ -50,7 +65,7 @@ public enum SSHResult: Equatable {
         switch self {
         case .timedOut: return "SSH verification timed out. Check the network route and try again."
         case .ready: return "SSH access verified. Google session availability is not checked."
-        case .authenticationRequired: return "SSH authorisation is needed. Use Authorise SSH access; your Linux password is entered in Terminal."
+        case .authenticationRequired: return "SSH authorisation is needed. Use Authorise SSH access; your host account password is entered in Terminal."
         case .identityNeedsVerification: return "Verify this host's fingerprint against a trusted record in SSH Terminal, then recheck."
         case .identityChanged: return "The host identity has changed. Stop and confirm its fingerprint through a trusted route; Telynd will not bypass this check."
         case .unreachable: return "SSH could not reach this computer. Check that it is awake and that your configured network route is available."

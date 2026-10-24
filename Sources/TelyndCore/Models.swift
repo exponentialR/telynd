@@ -27,13 +27,15 @@ public struct Desktop: Identifiable, Codable, Equatable, Sendable {
     public var chromeURL: String
     public var symbol: String
     public var identityPath: String?
+    public var hostPlatform: HostPlatform
     public var lastLaunch: Date?
     public var userConfirmedConnection: Date?
-    public init(id: UUID = UUID(), name: String, target: String? = nil, chromeURL: String = InputValidation.devicePicker, symbol: String = "desktopcomputer", identityPath: String? = nil) {
+    public init(id: UUID = UUID(), name: String, target: String? = nil, chromeURL: String = InputValidation.devicePicker, symbol: String = "desktopcomputer", identityPath: String? = nil, hostPlatform: HostPlatform = .unknown) {
         self.id = id; self.name = name; self.target = target?.isEmpty == true ? nil : target
         self.chromeURL = chromeURL; self.symbol = symbol; self.identityPath = identityPath
+        self.hostPlatform = hostPlatform
     }
-    enum CodingKeys: String, CodingKey { case id, name, target, chromeURL, symbol, identityPath, lastLaunch, userConfirmedConnection }
+    enum CodingKeys: String, CodingKey { case id, name, target, chromeURL, symbol, identityPath, hostPlatform, lastLaunch, userConfirmedConnection }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(UUID.self, forKey: .id)
@@ -43,6 +45,7 @@ public struct Desktop: Identifiable, Codable, Equatable, Sendable {
         chromeURL = try c.decodeIfPresent(String.self, forKey: .chromeURL) ?? InputValidation.devicePicker
         symbol = try c.decodeIfPresent(String.self, forKey: .symbol) ?? "desktopcomputer"
         identityPath = try c.decodeIfPresent(String.self, forKey: .identityPath)
+        hostPlatform = try c.decodeIfPresent(HostPlatform.self, forKey: .hostPlatform) ?? .unknown
         lastLaunch = try c.decodeIfPresent(Date.self, forKey: .lastLaunch)
         userConfirmedConnection = try c.decodeIfPresent(Date.self, forKey: .userConfirmedConnection)
     }
