@@ -1,6 +1,7 @@
 # Chrome Remote Desktop device import
 
-Decision: retain manual links and Google's device picker for this release (#4).
+Decision: retain Google's device picker with guided detection of its selected
+computer's tab address and explicit confirmation, plus manual-link fallback (#4).
 Telynd does not retrieve a Google device inventory or infer a Google device from
 an SSH hostname. Duplicate display names cannot establish that mapping.
 
@@ -39,3 +40,35 @@ work would need its own OAuth/consent design, minimal device metadata, token
 storage and revocation policy, duplicate-name handling, failure tests and
 provider validation. Do not implement it by scraping an authenticated page or
 borrowing Chrome's tokens or client credentials.
+
+The later UI refinement on the same date adds **Use open computer**. After
+opening a computer in Google's UI, the user explicitly requests a fixed Apple
+event that reads only the URL of Chrome's front active tab. macOS Automation
+consent is required; the app validates the exact Google HTTPS session path
+before filling a draft. The user reviews and saves it. This does not retrieve
+an inventory, infer a Google identity from SSH, read page content or change
+the selected Chrome profile. The macOS permission itself permits automation;
+the application code limits its request to the one address. Denial leaves
+manual entry available.
+
+The later multi-account refinement saves a Chrome profile directory and email
+label on each computer. Capturing a URL does not identify its Google account
+or change that association. The user chooses a profile once when several are
+available, then Connect reuses it. Missing profiles require explicit repair;
+there is no fallback to another account. Several Google web accounts inside a
+single Chrome profile still share that profile's browsing state; this app does
+not choose a Google web account within it. Separate Chrome profiles provide
+the supported route for keeping those connection contexts apart.
+
+Guided setup now launches a new Chrome window in the chosen profile at a unique
+local-page marker bundled with the app. A fixed, parameterised Apple event checks only the front
+tab for that marker, binds its window/tab IDs and navigates that marked tab to
+the fixed Google picker URL. Subsequent reads address only that bound tab; other
+open sessions cannot supply the candidate. No tab inventory is requested. The
+marker never goes to Google. Detection ends on the first valid individual link,
+cancellation, closing setup, a draft change or the five-minute deadline. Closed
+or moved tabs fail safely with a retry instruction. The detected link needs an
+explicit confirmation before filling the draft and Save before persistence.
+Changing the account, manual link or draft invalidates pending results. This is
+address detection while an explicit setup is active, not unattended device
+discovery or proof of Google account ownership.

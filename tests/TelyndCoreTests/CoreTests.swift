@@ -2,6 +2,17 @@ import XCTest
 @testable import TelyndCore
 
 final class CoreTests: XCTestCase {
+    func testFreshSSHIdentityAndNetworkWarningsOverrideHistoricalSetupReceipts() {
+        for previous in ["permissions_need_attention", "verification_unavailable", "ssh_ready"] {
+            for result: SSHResult in [.identityChanged, .identityNeedsVerification, .unreachable, .timedOut] {
+                XCTAssertEqual(result.setupGuidance(previousResult: previous), result.guidance)
+            }
+            XCTAssertNil(SSHResult.ready.setupGuidance(previousResult: previous))
+        }
+        XCTAssertTrue(SSHResult.authenticationRequired.setupGuidance(previousResult: "permissions_need_attention")!.contains("folder permissions"))
+        XCTAssertTrue(SSHResult.failed.setupGuidance(previousResult: "verification_unavailable")!.contains("password-free login failed"))
+        XCTAssertEqual(SSHResult.authenticationRequired.setupGuidance(previousResult: nil), SSHResult.authenticationRequired.guidance)
+    }
     func testOnlySupportedGoogleURLsAreAccepted() {
         XCTAssertTrue(InputValidation.chromeURL(InputValidation.devicePicker))
         XCTAssertFalse(InputValidation.target("reader@host.example\n"))
@@ -18,6 +29,39 @@ final class CoreTests: XCTestCase {
         let new = Desktop(name: "Home")
         XCTAssertNil(new.target); XCTAssertTrue(new.valid)
         XCTAssertEqual(try JSONDecoder().decode(Desktop.self, from: JSONEncoder().encode(new)), new)
+    }
+    func testDevicePickerEntriesRemainReadableButNeedAnIndividualConnectionLink() throws {
+        for link in [InputValidation.devicePicker, InputValidation.devicePicker + "/"] {
+            let saved = Desktop(name: "Existing computer", target: "reader@host.example", chromeURL: link)
+            let restored = try JSONDecoder().decode(Desktop.self, from: JSONEncoder().encode(saved))
+            XCTAssertTrue(restored.valid)
+            XCTAssertFalse(restored.hasDirectConnection)
+            XCTAssertEqual(restored.id, saved.id)
+            XCTAssertEqual(restored.target, saved.target)
+            XCTAssertEqual(restored.chromeURL, link)
+        }
+    }
+    func testDirectConnectionsUseTheExactSavedComputerAndSelectedProfile() throws {
+        let link = "https://remotedesktop.google.com/access/session/11111111-1111-4111-8111-111111111111"
+        let desktop = Desktop(name: "Workstation", chromeURL: link)
+        XCTAssertTrue(desktop.hasDirectConnection)
+        var prefs = Preferences(); prefs.chromeProfileEmail = "reader@example.test"; prefs.chromeProfileDirectory = "Profile 1"
+        var bound = desktop; bound.chromeProfile = prefs.legacyChromeProfile
+        let arguments = try ChromeLaunch.arguments(desktop: bound, profiles: ChromeProfiles.parse(metadata), applicationAvailable: true)
+        XCTAssertEqual(arguments, ["--profile-directory=Profile 1", "--app=\(link)"])
+        XCTAssertFalse(arguments.contains(InputValidation.devicePicker))
+        for invalid in [InputValidation.devicePicker, link + "?account=other", link + "/", link.replacingOccurrences(of: "google.com", with: "google.com.evil.test"), link.replacingOccurrences(of: "/access/", with: "/access/%73ession/"), "https://remotedesktop.google.com/access/session/not-a-device"] {
+            XCTAssertFalse(Desktop(name: "Workstation", chromeURL: invalid).hasDirectConnection, invalid)
+        }
+    }
+    func testChromeCaptureAcceptsOnlyAnIndividualGoogleConnection() throws {
+        let link = "https://remotedesktop.google.com/access/session/11111111-1111-4111-8111-111111111111"
+        XCTAssertEqual(try ChromeConnectionCapture.validatedLink(" \n" + link + "\n"), link)
+        for input in [InputValidation.devicePicker, "https://mail.google.com/", link + "?token=secret", link + "#fragment", link.replacingOccurrences(of: "https:", with: "file:"), link.replacingOccurrences(of: "google.com", with: "google.com.evil.test"), "javascript:alert(1)", ""] {
+            XCTAssertThrowsError(try ChromeConnectionCapture.validatedLink(input), input)
+        }
+        XCTAssertThrowsError(try ChromeConnectionCapture.validatedLink(nil))
+        XCTAssertThrowsError(try ChromeConnectionCapture.validatedLink(String(repeating: "a", count: 2049)))
     }
     func withStore(_ action: (ConfigurationStore, URL) throws -> Void) throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
@@ -53,7 +97,7 @@ final class CoreTests: XCTestCase {
         }
     }
     func testFutureSchemaAndDuplicateIDsAreRejected() throws {
-        XCTAssertThrowsError(try JSONDecoder().decode(Preferences.self, from: Data("{\"schemaVersion\":2}".utf8)))
+        XCTAssertThrowsError(try JSONDecoder().decode(Preferences.self, from: Data("{\"schemaVersion\":4}".utf8)))
         try withStore { store, _ in
             let item = Desktop(name: "Home")
             XCTAssertThrowsError(try store.saveDesktops([item, item]))
@@ -127,14 +171,15 @@ final class CoreTests: XCTestCase {
 
     func testMissingChromeAndChangedProfileDoNotProduceLaunchArguments() throws {
         let profiles = try ChromeProfiles.parse(metadata)
-        var prefs = Preferences(); prefs.chromeProfileEmail = "reader@example.test"; prefs.chromeProfileDirectory = "Profile 1"
-        XCTAssertThrowsError(try ChromeLaunch.arguments(url: InputValidation.devicePicker, profiles: profiles, preferences: prefs, applicationAvailable: false)) { error in
+        var desktop = Desktop(name: "Computer", chromeURL: "https://remotedesktop.google.com/access/session/11111111-1111-4111-8111-111111111111")
+        desktop.chromeProfile = ChromeProfileReference(directory: "Profile 1", email: "reader@example.test")
+        XCTAssertThrowsError(try ChromeLaunch.arguments(desktop: desktop, profiles: profiles, applicationAvailable: false)) { error in
             XCTAssertEqual(error as? ConfigurationError, .chromeMissing)
         }
-        XCTAssertEqual(try ChromeLaunch.arguments(url: InputValidation.devicePicker, profiles: profiles, preferences: prefs, applicationAvailable: true), ["--profile-directory=Profile 1", InputValidation.devicePicker])
-        prefs.chromeProfileEmail = "someone-else@example.test"
-        XCTAssertThrowsError(try ChromeLaunch.arguments(url: InputValidation.devicePicker, profiles: profiles, preferences: prefs, applicationAvailable: true))
-        XCTAssertThrowsError(try ChromeLaunch.arguments(url: InputValidation.devicePicker, profiles: [], preferences: prefs, applicationAvailable: true))
+        XCTAssertEqual(try ChromeLaunch.arguments(desktop: desktop, profiles: profiles, applicationAvailable: true), ["--profile-directory=Profile 1", "--app=\(desktop.chromeURL)"])
+        desktop.chromeProfile?.email = "someone-else@example.test"
+        XCTAssertThrowsError(try ChromeLaunch.arguments(desktop: desktop, profiles: profiles, applicationAvailable: true))
+        XCTAssertThrowsError(try ChromeLaunch.arguments(desktop: desktop, profiles: [], applicationAvailable: true))
     }
 
     func testReadinessSSHPolicyOverridesUnsafeUserDefaults() throws {

@@ -65,11 +65,25 @@ public enum SSHResult: Equatable {
         switch self {
         case .timedOut: return "SSH verification timed out. Check the network route and try again."
         case .ready: return "SSH access verified. Google session availability is not checked."
-        case .authenticationRequired: return "SSH authorisation is needed. Use Authorise SSH access; your host account password is entered in Terminal."
-        case .identityNeedsVerification: return "Verify this host's fingerprint against a trusted record in SSH Terminal, then recheck."
+        case .authenticationRequired: return "SSH authorisation is needed. Choose Approve this Mac; enter the Linux login password in Terminal."
+        case .identityNeedsVerification: return "Choose Approve this Mac and compare the host fingerprint against a trusted record in Terminal before accepting it."
         case .identityChanged: return "The host identity has changed. Stop and confirm its fingerprint through a trusted route; Telynd will not bypass this check."
         case .unreachable: return "SSH could not reach this computer. Check that it is awake and that your configured network route is available."
         case .failed: return "SSH verification did not finish successfully. Retry or use SSH Terminal for details."
         }
+    }
+    public func setupGuidance(previousResult: String?) -> String? {
+        guard self != .ready else { return nil }
+        // Historical approval receipts can explain an authentication failure,
+        // but must never hide a current identity or network warning.
+        if self == .authenticationRequired || self == .failed {
+            if previousResult == "permissions_need_attention" {
+                return "Linux folder permissions prevent key login. Open Telynd Setup on Linux, choose Check again and review Fix folder permissions before trying approval again."
+            }
+            if previousResult == "verification_unavailable" {
+                return "Authorisation ran, but password-free login failed. Open Telynd Setup on Linux and choose Check again. Resolve any folder-permission warning; if none appears, ask the administrator to review SSH policy."
+            }
+        }
+        return guidance
     }
 }

@@ -48,6 +48,7 @@ public final class ConfigurationStore {
         try data.write(to: temporary)
         let destination = directory.appendingPathComponent(name)
         if FileManager.default.fileExists(atPath: destination.path) {
+            guard try FileManager.default.attributesOfItem(atPath: destination.path)[.type] as? FileAttributeType == .typeRegular else { throw ConfigurationError.writeLocked }
             _ = try FileManager.default.replaceItemAt(destination, withItemAt: temporary)
         } else { try FileManager.default.moveItem(at: temporary, to: destination) }
         // Replacement may retain an older destination's metadata.
@@ -62,6 +63,7 @@ public struct ChromeProfile: Identifiable, Equatable {
     public let email: String
     public var signedIn: Bool { !email.isEmpty }
     public var label: String { email.isEmpty ? "\(name) — sign in within Chrome" : "\(name) — \(email)" }
+    public var reference: ChromeProfileReference { ChromeProfileReference(directory: directory, email: email) }
 }
 
 public enum ChromeProfiles {
@@ -70,7 +72,7 @@ public enum ChromeProfiles {
               let profile = root["profile"] as? [String: Any],
               let cache = profile["info_cache"] as? [String: [String: Any]] else { throw ConfigurationError.unreadableProfiles }
         return cache.compactMap { directory, value in
-            guard !directory.isEmpty, directory != ".", directory != "..", !directory.contains("/"), !directory.contains("\\"), !directory.contains("\0") else { return nil }
+            guard InputValidation.profileDirectory(directory) else { return nil }
             return ChromeProfile(directory: directory, name: value["name"] as? String ?? directory, email: value["user_name"] as? String ?? "")
         }.sorted { $0.label.localizedCaseInsensitiveCompare($1.label) == .orderedAscending }
     }
@@ -82,5 +84,20 @@ public enum ChromeProfiles {
         let matches = profiles.filter { $0.signedIn && $0.email.lowercased() == preferences.chromeProfileEmail.lowercased() }
         guard matches.count == 1 else { throw ConfigurationError.invalidProfile }
         return matches[0]
+    }
+    public static func selected(in profiles: [ChromeProfile], reference: ChromeProfileReference?) throws -> ChromeProfile {
+        guard let reference, reference.valid, let directory = reference.directory,
+              let profile = profiles.first(where: { $0.directory == directory && $0.signedIn && $0.email.lowercased() == reference.email.lowercased() }) else { throw ConfigurationError.invalidProfile }
+        return profile
+    }
+    /// Freeze the old global selection on existing records, including missing profiles.
+    /// An ambiguous email-only legacy choice remains unresolved until the user chooses.
+    public static func migrate(_ desktop: Desktop, legacy: ChromeProfileReference?, profiles: [ChromeProfile]) -> Desktop {
+        guard desktop.chromeProfile == nil, var reference = legacy else { return desktop }
+        if reference.directory == nil {
+            let matches = profiles.filter { $0.signedIn && $0.email.lowercased() == reference.email.lowercased() }
+            if matches.count == 1 { reference = matches[0].reference }
+        }
+        var result = desktop; result.chromeProfile = reference; return result
     }
 }

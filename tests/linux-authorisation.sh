@@ -20,6 +20,16 @@ ssh-keygen -q -t ed25519 -N '' -C fixture@example.test -f "$fixture/seed"
 ssh-keygen -q -t ed25519 -N '' -C second@example.test -f "$fixture/second"
 key=$(awk '{ print $1 " " $2 }' "$fixture/seed.pub")
 second=$(awk '{ print $1 " " $2 }' "$fixture/second.pub")
+# Reproduce a password-accessible home rejected by OpenSSH StrictModes.
+chmod 772 "$desktop_home"
+set +e
+printf '%s\n' "$key" | remote
+permission_code=$?
+set -e
+[ "$permission_code" = 23 ]
+[ ! -e "$desktop_home/.ssh" ]
+[ "$(stat -c %a "$desktop_home")" = 772 ]
+chmod 750 "$desktop_home"
 # Validate before touching .ssh, including attempts to supply options or commands.
 for invalid in 'command="bad" ssh-ed25519 AAAA' 'ssh-ed25519 bad;command' 'unsupported AAAA'; do
   if printf '%s\n' "$invalid" | remote; then echo 'Invalid input accepted'; exit 1; fi

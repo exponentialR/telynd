@@ -64,6 +64,12 @@ if [ "$name" = ssh ] && [[ "$*" == *mktemp* ]]; then echo /tmp/telynd-setup.1234
         self.assertNotIn('result=ssh_ready', receipt)
         self.assertNotIn('scp ', actions)
 
+    def test_unsafe_home_has_a_specific_receipt_and_skips_key_verification(self):
+        result, receipt, actions, _ = self.flow('setup-access', 'ssh-install', failure_code=23)
+        self.assertEqual(result.returncode, 23)
+        self.assertIn('result=permissions_need_attention', receipt)
+        self.assertEqual(len([line for line in actions.splitlines() if line.startswith('ssh ')]), 1)
+
     def test_missing_key_and_overwrite_are_refused(self):
         result, receipt, actions, _ = self.flow('authorise', existing=False)
         self.assertNotEqual(result.returncode, 0); self.assertEqual(actions, '')

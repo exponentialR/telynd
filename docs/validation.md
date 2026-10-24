@@ -1,5 +1,448 @@
 # Onboarding validation record
 
+## Session windows and embedded-viewer feasibility, 24 October 2026
+
+Connect now requests a separate Chrome application-mode window with the saved
+account and direct connection link. **Open in Chrome tab** is available from
+its options menu; both routes retain account and URL validation. All 78 Swift
+tests passed after updating window/tab expectations and checking that both
+modes refuse missing or changed profiles. A further review added refusal of
+stale account/link actions and write-locked settings before any launch. The release build and ad-hoc bundle
+signature passed. Native checks verified the running app's window explanation
+and browser-tab fallback; saved desktop and preference files were unchanged.
+
+An isolated WebKit probe reached Google's unsupported-browser page. Its site
+compatibility continuation led towards Google sign-in, where the probe
+intentionally stopped before requesting credentials. No authenticated embedded
+session was established. Two existing signed-in Chrome profiles separately
+opened Google's public device picker in application-mode windows, displaying
+different accounts without tab strips or address bars. Only those test windows
+were closed; the original remote session still reported Connected. A second
+real-host session was not started. Native audio/clipboard/keyboard/reconnect
+acceptance in a newly launched session remains outstanding.
+
+The probe apps were quit, unregistered and moved to recoverable Trash. Their
+source, public-only compatibility screenshot, provider-policy references and
+limitations are in the [feasibility record](session-viewer.md). The production
+app contains no embedded viewer or credential/cookie-transfer mechanism.
+
+## Linux folder permissions before authorisation, 24 October 2026
+
+The live setup report exposed an account home with mode 0772. A key already
+present in `authorized_keys` was rejected even though password login worked.
+Helper 0.2.1 now checks the account home and existing SSH paths before allowing
+setup-card copy/save. It explains writable permissions and offers an explicit
+repair confirmation, including the impact on shared users. The repair removes
+only group/other write bits using open descriptors; it is not recursive and
+never adds access. Foreign ownership, symlinks, hard links, special files and
+unreadable paths require administrator review. An active SSH service is shown
+as **SSH is running**, instead of an enabled Enable SSH button.
+
+The remote authorisation script independently refuses unsafe home ownership
+or write permissions before any key-file changes. Its dedicated result sends
+the Mac user back to Linux setup. A failed password-free verification also
+explains the diagnostic route instead of repeating generic approval guidance.
+No SSH server security checks are disabled. Existing Linux helpers require an
+explicit package update; a Mac update alone cannot replace them.
+
+All 77 Swift tests passed. The full local Python suite ran 59 tests without
+failures, with three expected platform/display skips. Added tests cover the
+0772 to 0750 repair, preserved contents and unrelated file permissions, unsafe
+path/ownership refusal, and the dedicated authorisation result. Linux CI also
+runs the Tk cancellation/repair/readiness journey under Xvfb and refuses a
+writable disposable account home before authorisation writes. These tests do
+not establish a successful repair or SSH login on a user's real PC.
+
+## Permanent deletion of removed entries, 24 October 2026
+
+Removed computer entries have no automatic expiry. **Help → Recently removed
+computers…** now states that retention explicitly and offers **Delete
+permanently…** beside Restore. Its confirmation names the entry, explains that
+it cannot be restored and preserves the scope: Google registration, SSH keys
+and remote recovery remain in place. Terminal launchers and receipts are also
+preserved; this is saved-entry deletion, not secure erasure or access revocation.
+
+All 77 Swift tests passed, including four added deletion cases. They cover
+relaunch, an uncleaned old active-list row, blocked writes to either settings
+file, stale editors/actions, write locking and preservation of keys/receipts.
+The active-list file must be cleaned before the authoritative archive entry is
+discarded; failures retain a restorable archive. Session-local deleted IDs block
+open editors from recreating the entry without retaining its connection data.
+
+Native synthetic checks verified retention text, the named confirmation and
+Cancel preserving the entry. Permanent deletion itself was exercised by the
+isolated store tests, not against a personal desktop. Failures are shown inside
+the removed-computers sheet. No remote host changes were made.
+
+![Permanent deletion beside Restore with explicit retention](images/permanent-deletion.png)
+
+## Visible recovery progress, 24 October 2026
+
+Linux recovery now shows all three stages and highlights the current step.
+Saved computer details are collapsed; **Approve this Mac…** is the primary
+access action. Key and fingerprint explanations are available under **What
+happens in Terminal?**. **Enable automatic recovery…** remains visible outside
+the scrolling content and explains what unlocks it. Access approval and monitor
+installation remain separate explicit actions with the existing guards.
+Only fresh access evidence, a complete key pair and a verified enabled recovery
+report can show **Enabled**; pending Terminal actions and checks cannot.
+
+All 73 Swift tests passed. Native checks with synthetic settings verified the
+saved-computer step 2, the new-computer step 1 and the disabled final control
+in both. Clearing and re-entering an address kept the manual fields available
+and updated the current step. No SSH approval or host installation ran.
+The screenshot below contains only synthetic computer data. These checks
+establish layout and local gating, not a first-time-user recovery pilot.
+
+![Visible recovery stages and next action](images/recovery-progress.png)
+
+## First-time setup instructions and direct Linux download, 24 October 2026
+
+The initial route is a working Google remote session, with no existing SSH
+requirement. The preparation screen separates **On this Mac** from **Inside
+the Linux remote desktop**: copy a download link, open the remote desktop,
+then download and install Telynd Setup in a browser on Linux. The helper offers
+SSH enablement and supplies the login/address details. **Continue to paste
+setup card** opens a separate **Back in Telynd on this Mac** screen. Manual
+installer transfer is a documented fallback, with named Google upload/download
+controls; it is no longer the default journey.
+
+The helper is already committed in the public repository. An actual HTTPS
+request retrieved the fixed-commit `.deb`, byte-identical to the bundled
+installer. The app supplies that URL only when the local installer matches
+its pinned SHA256. There is no mutable latest URL, new public release,
+remote command execution, automatic installation or prerequisite SSH login.
+The Linux user opens the download and approves its installation and SSH setup.
+
+All 73 Swift tests passed, including the URL pin and rejection of mismatched
+installer bytes. Native synthetic checks verified the copy-link success
+feedback, the preparation screen's visible Continue action, a separate paste
+screen with its controls visible without scrolling, and return navigation.
+The app-discovery cache and a refused overwrite of a custom preview bundle
+initially selected an older preview; the final checks used a freshly assembled
+bundle with its new Continue string verified before launch. No private host,
+real Google authentication or Linux administrator prompt was exercised.
+A real first-time-user enrolment pilot remains outstanding.
+
+![Prepare Linux without an existing SSH connection](images/guided-pairing.png)
+
+![Return to the Mac and paste the helper's connection details](images/pairing-paste-details.png)
+
+## Guided Linux desktop pairing, 24 October 2026
+
+New Linux recovery starts with a desktop helper and short-lived setup card.
+The normal route no longer asks users to choose an address or SSH key file.
+Manual entry remains under Advanced. The Mac shows the supplied PC/account,
+requires an explicit bounded check and compares only the card's listed IPv4
+addresses against its public host keys. It does not log in or accept trust.
+Existing Terminal authorisation and restricted recovery installation remain
+separate approvals after pairing.
+
+All 71 Swift tests passed locally. Pairing coverage rejects unsupported or
+secret-bearing packets, malformed addresses, stale cards and identity mismatch;
+it limits candidate count and rejects cancelled or expired late results.
+Scanner stderr cannot supply public-key protocol output. The full local Python
+suite ran 53 tests without failures, with two expected platform/display skips.
+Nine release-security tests also passed after adding a helper-tampering case.
+The package is checked against reviewable source, root ownership/modes and a
+fixed PolicyKit action. Public-key reads and setup-file writes refuse symlinks
+and special files. Helper checks run off the Tk event thread; callbacks return
+through a main-thread queue. Closing during approved SSH preparation is blocked
+until the operation finishes, avoiding an accidental package-install interruption.
+
+Linux CI on a disposable Ubuntu runner installed the actual `.deb`, executed
+its fixed root action and passed its desktop
+copy-card test under Xvfb. A subsequent run exposed a service-only readiness
+assumption on a socket-activated Ubuntu host. Preparation and CI now accept an
+active SSH service or socket; CI additionally requires actual public host-key
+output from the local SSH listener. The root-action test covers socket fallback
+and refusal when both are inactive. Existing Linux authorisation, directory-security and
+systemd lifecycle suites passed too. This is isolated installation/GUI evidence,
+not a real Google-host or first-time-user enrolment pilot. No personal host was
+modified. The remaining fresh-user journey includes graphical package-manager
+behaviour, file transfer, a real PolicyKit approval, first trust and authentication.
+
+Native macOS checks used only synthetic settings. The initial pairing pane fits
+its sheet and hides manual fields and later access/recovery actions. A fresh
+synthetic setup file showed the correct PC/account and explicit check; the
+fixture's blocked network produced neutral next-step guidance. Importing an
+invalid replacement removed the previous candidate. Advanced manual fields
+remained available. The temporary preview was quit, unregistered and moved to
+recoverable Trash; the canonical development app was updated in place. The
+user's existing setup window was left open and saved settings were hash-verified
+unchanged. Its new views load after relaunch. The ad-hoc bundle signature passed.
+
+![Guided Linux pairing with synthetic data](images/guided-pairing.png)
+
+The Ubuntu/Debian IPv4 helper is a developer preview. Other Linux distributions
+retain manual SSH setup; Mac/Windows retain their host-local kits. No automatic
+VPN or firewall setup, Google credential access, new host trust or public signed
+release is claimed. See [pairing](pairing.md) for approvals, packet semantics
+and network requirements.
+
+## Clear Linux login and address instructions, 24 October 2026
+
+Linux recovery now keeps separate username and computer-address labels visible
+while typing. The username hint explicitly excludes the Terminal prompt and
+`@computer`. A full address in that field gets neutral corrective guidance.
+**Paste SSH address** states that it splits one simple SSH login line into both
+fields. The help now explains where to run the read-only command and which part
+of its output to copy. Command output labels the login, separates a reported
+Tailscale address from other IPv4 candidates, suppresses duplicate VPN entries
+and omits unsupported IPv6 targets. It prints ready-to-paste SSH lines and keeps
+public identity fingerprints in their own section. No address candidate is
+assumed reachable, and fingerprints are never treated as credentials or trusted
+automatically.
+
+All 65 Swift tests passed. Two new command tests execute the copied POSIX shell
+text against controlled username/address/Tailscale/public-key tools. They check
+labelled output, VPN separation, failed Tailscale fallback, IPv6 omission,
+round-tripping each SSH line through the existing strict paste parser, and
+rejection of multi-address output as one destination. No real SSH authorisation
+or recovery action ran during these checks. A separate read-only support check
+confirmed TCP/22 reachability and a public ED25519 fingerprint matching the
+user's trusted Linux console output. It did not authenticate or modify trust.
+The user's existing setup window was kept open; the revised help is built for
+the next launch, without discarding current setup progress. Private addresses,
+account names and fingerprints are omitted from this record.
+
+## Visible recovery during Add computer, 24 October 2026
+
+The Add computer editor now has two visible steps: **Connection → Recovery
+(optional)**. The connection page and its fixed footer announce the recovery
+step. The recovery page shows the remote operating-system selector and explains
+Linux SSH access, key setup and timer approval. **Save & set up SSH…** saves the
+connection, then replaces the editor contents with the existing guided recovery
+screen. It does not launch Terminal, authorise keys or install a timer. **Save
+connection only** saves without opening recovery. Existing entries retain a quick
+Save action and keep their SSH settings. The first-run guide uses the same
+platform-specific explanation and saves the chosen OS when finishing.
+
+The 63 Swift tests passed. Isolated native UI checks verified the recovery step
+is discoverable before completing a connection; saving remains disabled until
+the connection is valid; Linux selection survives Back; and Save & set up SSH
+immediately opens the username/address and key/recovery steps for the saved
+record. Fixture read-back confirmed the selected OS and browser account were
+saved without creating an SSH destination or key. Editing an existing fixture
+and taking the normal Save path returned to the dashboard and preserved its
+SSH destination, identity path and account. No real SSH setup or host mutation
+was performed. The synthetic screenshot below shows the complete recovery
+explanation and both save choices without scrolling.
+
+![Optional recovery during Add computer](images/add-computer-recovery.png)
+
+## Guided Chrome computer selection, 24 October 2026
+
+**Choose computer in Chrome** now opens a new window in the selected profile,
+binds its bundled local setup page through a unique fragment, then navigates
+that single tab to Google's device picker. A fixed, parameterised Apple event
+reads only that bound tab's address during the explicit setup attempt. It does
+not enumerate tabs, scrape content or read authentication material. A valid
+Google HTTPS session link becomes a candidate; **Use this computer** fills the
+draft and **Save** persists it. The five-minute limit stops waiting for a new
+selection; a detected candidate remains available for review. Draft changes,
+cancellation and closing the editor invalidate pending results. Closed or moved
+tabs require a retry. Routine picker/closed-tab guidance uses neutral styling;
+permission and reader failures retain error styling. Manual entry and explicit
+one-shot front-tab capture remain available under **Other ways to add a link**.
+
+Local verification: 63 Swift tests passed, including opening-marker ownership,
+bound-tab identity, rejected picker/sign-in/untrusted URLs, draft/account edits,
+expiry, candidate confirmation, superseded attempts and compilation against the
+installed Chrome scripting dictionary. The full Python suite ran 46 tests with
+one platform skip and no failures. After adding the bundled HTML resource, all
+nine release-security tests passed again, including rejection of an altered
+setup page and altered Automation explanation. The release allowlist verifies
+that page against its committed source before signing.
+
+A live native-app check opened Google's real device picker in the intended
+non-default Chrome profile. Selecting its computer produced the confirmation
+card automatically without a second capture click. Save remained disabled until
+confirmation. This establishes link detection, not a successful authenticated
+remote session or general multi-account acceptance. No PIN was entered and no
+host recovery action ran. Private settings were backed up and verified unchanged
+by SHA-256 read-back. The existing unsaved draft was reopened after the in-place
+app update. Only the canonical development app was updated; no extra Telynd app
+was installed. Private account details and connection URLs are omitted here.
+
+## Recoverable removal and guided Linux access, 24 October 2026
+
+Source `323e57f6f43a4a1fbd52d0a334aefcde1e9a2fd4` adds **Remove from Telynd**
+to each computer's options menu. The confirmation explains that Google
+registration, SSH keys, host recovery and already-running Terminal setup remain
+independent. Removed entries are archived privately for Undo and **Help →
+Recently removed computers → Restore**, including after relaunch.
+
+The private archive is committed before cleaning the active-list file. Startup
+filters archived IDs, so an interrupted cleanup cannot resurrect an entry.
+Restore writes the computer before clearing its archive entry; an unsuccessful
+final commit therefore leaves it hidden and recoverable. Removal clears matching
+setup-guide references and local observations. Stale editors and host actions
+cannot resurrect or operate through a removed record. Preferences advance to
+schema 3 so older builds reject settings they cannot interpret. Settings writes
+also refuse an unexpected directory or symlink destination instead of replacing
+it as a regular settings file.
+
+Linux recovery now guides address entry, access setup and recovery installation.
+**Paste address** accepts only a validated target or simple SSH login command.
+New setups normally use a dedicated Telynd key; existing saved targets keep their
+previous key choice. **Set up SSH access** creates a pair only when both files
+are absent, then uses the existing verified authorisation protocol. Partial
+pairs are refused without overwrite. Passphrase choice, host-fingerprint trust,
+login and administrator passwords remain standard interactive approvals.
+Recovery installation is separate and remains gated by fresh supported-host
+readiness. Existing saved Linux settings are checked when recovery opens, and
+an open setup screen checks current readiness after its Terminal action ends.
+A completed receipt is no longer retimestamped when its finished Terminal closes.
+
+SSH must already be enabled and reachable, with an initial authentication route.
+The app does not enable server password login, open ports, infer Linux identity
+from Google links or bypass fingerprint checks. In-app Ubuntu guidance and fixed
+read-only discovery commands explain the prerequisite. Mac/Windows recovery
+continues to use host-local kits without inbound SSH.
+
+Verification: 57 Swift tests passed. The full Python suite ran 46 tests with one
+platform skip and no failures. Coverage includes removal/restore across relaunch,
+interrupted disk commits, stale-action refusal, preservation of key and receipt
+files, address/command parsing, missing-key creation without a product-selected
+passphrase, existing-key reuse, incomplete-pair refusal, strict SSH transport,
+protected keys and completion receipt timestamps. SSH transports and interactive
+user input were controlled substitutes; no real key or host was enrolled.
+
+Native isolated UI checks observed cancellation, removal, the Undo action,
+persistence after quit/reopen, restoration through Recently removed computers,
+friendly SSH fields enabling setup without manual key-path input, and the
+prerequisite help. The final layout keeps advanced details collapsed and later
+recovery actions gated behind access verification. The screenshot contains
+synthetic names and addresses only. The temporary UI app was moved to Trash
+after testing, leaving one normal development app.
+
+The existing development app was updated at the repository's build/Telynd.app
+after a private settings backup. Its desktop file remained byte-for-byte
+unchanged, previous preference values were preserved with schema 3 and an empty
+archive, and settings permissions remained owner-only. Opening its existing
+Linux recovery settings automatically reported SSH access verified and recovery
+enabled through a read-only check. No key authorisation, installation or service
+change was requested on that host. A fresh real-host first-time setup pilot
+remains outstanding under #13; this does not close its acceptance gap.
+
+![Guided SSH setup using a synthetic computer and address](images/guided-ssh.png)
+
+## Computer rows and remembered accounts, 24 October 2026
+
+Source `9a61dbd916935c47e7643365cfea7b945682a8cb` replaces dashboard cards
+with compact computer rows, a toolbar search and proportionate Connect buttons.
+Each row shows its saved browser account. Editing, details and optional recovery
+are available from its options menu. The editor and guide scroll their content
+while keeping their actions visible. There is no global account selector.
+
+Each computer stores a Chrome profile directory and email label. New computers
+use the sole available profile automatically; several profiles require a choice
+once during setup. Missing directories or changed email labels refuse launch
+instead of selecting another profile, even one carrying the same email. Account
+or destination changes clear previous connection-launch/confirmation evidence.
+The account label comes from local Chrome metadata and does not establish the
+Google identity active in a web tab. The URL reader is unchanged and cannot
+infer that identity.
+
+The one-time migration copies the previous global association onto existing
+computers and setup drafts, preserving SSH settings, IDs, URLs and prior
+connection evidence. A persisted migration marker prevents later drafts from
+inheriting the obsolete preference. Preferences advance to schema 2, so older
+builds refuse them instead of ignoring per-computer associations. A failed
+migration locks writes and reports the error.
+
+Verification: 48 Swift tests passed, including nine new tests for per-computer
+launch arguments, missing/changed/ambiguous profiles, private persistence,
+account-change evidence invalidation, one-time migration and refusal of unsafe
+legacy data. The capture request tests also reject a result after its draft's
+account changes. A release build and its ad-hoc signature passed locally.
+
+Native synthetic checks covered two profile associations across multiple
+computers, repairing an unavailable account without changing other computers,
+adding a computer, searching by account, a simulated Connect, Back/close/reopen
+of setup with its account and link intact, light/dark appearance, and scrolling
+an editor with both manual-link and recovery sections expanded. Fixtures did
+not contact Chrome or a host. The final screenshots below contain only
+synthetic computers and accounts.
+
+The user's development app was replaced in place after a private settings
+backup. Read-back confirmed that migration added only each computer's previous
+account association; connection and SSH fields and previous timestamps were
+preserved, and settings retained owner-only permissions. Its read-only host
+check reported SSH verified, Google service active and recovery timer active.
+No host settings or services were changed. Two different real Google account
+sessions were not exercised; account-routing arguments and UI persistence were
+verified with controlled profiles. The earlier real Chrome capture/connection
+evidence below remains a separate observation.
+
+![Computer rows with synthetic personal and university accounts in light appearance](images/per-computer-light.png)
+
+![The same synthetic computers in dark appearance](images/per-computer-dark.png)
+
+## Capture and setup-resume review corrections, 24 October 2026
+
+Source `adcb6f954eb5d1ae4c48256bae1310c46a83f5e9` corrects two reproduced
+issues from the compact-dashboard review. A capture completion now belongs to
+its original editor request and draft. Manual typing/pasting, choosing another
+computer, changed draft data or closing the editor invalidates the request, so
+a delayed result cannot replace newer input or publish an obsolete error.
+The setup guide saves its draft from the canonical saved computer, including
+cleared connection evidence when its destination changes.
+
+Verification: 39 Swift tests passed, including six new regression tests. The
+app-store tests use private temporary settings with the existing fixture gates;
+the test initializer is excluded from release builds. Native replays used an
+isolated debug copy with a synthetic reader delayed by 20 seconds, without
+Chrome or host access. Entering a different manual destination during capture
+preserved that destination through completion and Save. An unchanged draft
+accepted its own delayed capture and enabled Save. The legacy setup journey
+also retained its corrected connection link after Save, Back, closing setup and
+reopening it, with Save and continue enabled. These controlled replays test
+request ownership and persistence; the real Chrome permission/capture evidence
+is recorded separately below.
+
+## Compact dashboard and Chrome-tab capture, 24 October 2026
+
+Source `61935f19e167e010008f7208c216dee209e0431b` was built locally in release
+configuration on macOS 26.4.1 / ARM64 and its ad-hoc signature verified. The
+dashboard now keeps diagnostics/history under **Details & recovery**. Individual
+Google session links enable **Connect**; legacy device-picker entries retain
+their saved settings and offer **Set connection link**. New entries require an
+individual connection link before saving.
+
+An isolated debug fixture exercised compact cards, expansion of diagnostics,
+legacy-link editing, refusal of an unsafe domain, acceptance of a valid direct
+link and the setup guide's save/launch progression. No fixture contacted a
+host. On the actual development app, the existing computer's individual link
+was saved, prior launch/connection-confirmation timestamps were cleared and
+SSH target/key settings were preserved. **Connect** opened the intended Google
+session page directly; Google's UI separately reported **Connected**.
+
+The **Use open computer** action was then tested with a temporary unsaved draft.
+The user clicked the action and approved macOS Automation access to Chrome.
+The app captured the intended open computer's address and enabled Save without
+copying or typing a link. Reading Google's device-picker page instead produced
+the expected refusal and preserved the prior draft link. The temporary draft
+was cancelled, leaving no extra saved computer. A subsequent live readiness
+check reported Google active and recovery enabled with its timer active.
+
+The browser reader sends a fixed Apple event for the front active tab's URL
+only when requested. It does not enumerate tabs, read page content or retrieve
+a Google inventory. The captured address is untrusted input and must pass the
+same exact-host HTTPS session-link validation before filling a draft; saving
+remains explicit. macOS grants app Automation access, which is broader than
+the reader's specific URL request. The usage explanation and trusted signing
+entitlement are recorded in the source and release guide.
+
+Verification: 33 Swift tests, nine adversarial release-validation tests, local
+release build/signature checks and the native UI observations above. Real
+permission denial, Chrome not running, other macOS versions and Developer ID
+distribution were not exercised in this live capture pilot. Validation and
+error guidance cover these cases in code; they remain separate from observed
+success on this configuration. No host identifiers, account labels, connection
+URLs or remote screen content are included here.
+
 ## First registered Linux-host recovery, 24 October 2026
 
 This pilot recovered an already-failed Google Chrome Remote Desktop service on

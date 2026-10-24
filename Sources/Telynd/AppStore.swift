@@ -15,6 +15,10 @@ import CryptoKit
     @Published var operationNotes: [UUID: String] = [:]
     @Published var recoveryDesktop: Desktop?
     @Published var writeLocked = false
+    @Published private(set) var readingChromeConnection = false
+    @Published private(set) var lastRemovedID: UUID?
+    // Open editors can outlive an archive deletion; they must not recreate it.
+    private var permanentlyDeletedIDs: Set<UUID> = []
     let configuration: ConfigurationStore
     let fixtureMode: Bool
     var fixtureAppearance: ColorScheme? {
@@ -28,7 +32,12 @@ import CryptoKit
         let existing = ssh.appendingPathComponent("id_ed25519").path
         return FileManager.default.fileExists(atPath: existing) ? existing : ssh.appendingPathComponent("telynd_ed25519").path
     }
-    init() {
+    func suggestedIdentity(for desktop: Desktop) -> String {
+        if let saved = desktop.identityPath { return saved }
+        if desktop.target != nil { return defaultIdentity }
+        return fixtureMode ? "/tmp/telynd-preview/telynd_ed25519" : FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".ssh/telynd_ed25519").path
+    }
+    convenience init() {
         let home = FileManager.default.homeDirectoryForCurrentUser
         var directory = home.appendingPathComponent("Library/Application Support/Telynd")
         var fixture = false
@@ -37,19 +46,38 @@ import CryptoKit
             directory = URL(fileURLWithPath: path); fixture = true
         }
         #endif
+        self.init(configuration: ConfigurationStore(directory: directory), fixture: fixture)
+    }
+    #if DEBUG
+    // Tests use isolated settings and retain the existing fixture safety gates.
+    convenience init(configuration: ConfigurationStore) {
+        self.init(configuration: configuration, fixture: true)
+    }
+    #endif
+    private init(configuration: ConfigurationStore, fixture: Bool) {
         fixtureMode = fixture
-        configuration = ConfigurationStore(directory: directory)
+        self.configuration = configuration
         do {
-            if !fixture { try configuration.migrateLegacy(from: home.appendingPathComponent("Library/Application Support/Remote Desktops")) }
+            if !fixture { try configuration.migrateLegacy(from: FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/Remote Desktops")) }
             desktops = try configuration.loadDesktops()
             preferences = try configuration.loadPreferences(existingDesktops: !desktops.isEmpty)
+            // The archive is authoritative if an interrupted disk cleanup left an old row.
+            let removed = Set(preferences.removedDesktops.map(\.id))
+            desktops.removeAll { removed.contains($0.id) }
         } catch { self.error = error.localizedDescription; writeLocked = true }
         refreshProfiles()
+        migrateConnectionProfiles()
         refreshOperationNotes()
         showGuide = !preferences.guideCompleted && !writeLocked
     }
     @discardableResult func save(_ desktop: Desktop) -> Bool {
         guard !writeLocked else { error = ConfigurationError.writeLocked.localizedDescription; return false }
+        guard !permanentlyDeletedIDs.contains(desktop.id) else { error = "This computer entry was permanently deleted. Add it again as a new computer if needed."; return false }
+        guard !preferences.removedDesktops.contains(where: { $0.id == desktop.id }) else { error = "This computer was removed. Restore it from Recently removed computers before editing it."; return false }
+        var desktop = desktop
+        if let old = desktops.first(where: { $0.id == desktop.id }), old.chromeURL != desktop.chromeURL || old.chromeProfile != desktop.chromeProfile {
+            desktop.lastLaunch = nil; desktop.userConfirmedConnection = nil
+        }
         var updated = desktops
         if let i = updated.firstIndex(where: { $0.id == desktop.id }) { updated[i] = desktop } else { updated.append(desktop) }
         do {
@@ -59,11 +87,76 @@ import CryptoKit
         }
         catch { self.error = error.localizedDescription; return false }
     }
+    @discardableResult func remove(_ desktopID: UUID) -> Bool {
+        guard !writeLocked else { error = ConfigurationError.writeLocked.localizedDescription; return false }
+        guard let desktop = desktops.first(where: { $0.id == desktopID }) else { return false }
+        // Commit the recoverable removal first. It remains effective across relaunch
+        // even if cleaning the active-list file fails afterwards.
+        guard updatePreferences({ value in
+            value.removedDesktops.append(desktop)
+            if value.guideDesktopID == desktopID { value.guideDesktopID = nil; value.guideStep = .computer }
+            if value.guideDraft?.id == desktopID { value.guideDraft = nil }
+        }) else { return false }
+        desktops.removeAll { $0.id == desktopID }
+        hostChecks.invalidate(desktopID); operationNotes[desktopID] = nil
+        if recoveryDesktop?.id == desktopID { recoveryDesktop = nil }
+        lastRemovedID = desktopID
+        do { try configuration.saveDesktops(desktops) }
+        catch { self.error = "The computer was removed and can be restored. The active-list file could not be cleaned; the saved removal will still hide it after reopening Telynd." }
+        return true
+    }
+    @discardableResult func restore(_ desktopID: UUID) -> Bool {
+        guard !writeLocked else { error = ConfigurationError.writeLocked.localizedDescription; return false }
+        guard let desktop = preferences.removedDesktops.first(where: { $0.id == desktopID }), !desktops.contains(where: { $0.id == desktopID }) else { return false }
+        let updated = desktops + [desktop]
+        do { try configuration.saveDesktops(updated) }
+        catch { self.error = error.localizedDescription; return false }
+        guard updatePreferences({ $0.removedDesktops.removeAll { $0.id == desktopID } }) else { return false }
+        desktops = updated
+        if lastRemovedID == desktopID { lastRemovedID = nil }
+        return true
+    }
+    @discardableResult func permanentlyDelete(_ desktopID: UUID) -> Bool {
+        guard !writeLocked else { error = ConfigurationError.writeLocked.localizedDescription; return false }
+        guard preferences.removedDesktops.contains(where: { $0.id == desktopID }),
+              !desktops.contains(where: { $0.id == desktopID }) else { return false }
+        // Removal may have left an old active-list row after a failed write.
+        // Clean that file before discarding the authoritative removal record.
+        do { try configuration.saveDesktops(desktops) }
+        catch { self.error = "The entry could not be permanently deleted. It remains in Recently removed computers. " + error.localizedDescription; return false }
+        guard updatePreferences({ value in
+            value.removedDesktops.removeAll { $0.id == desktopID }
+            if value.guideDesktopID == desktopID { value.guideDesktopID = nil; value.guideStep = .computer }
+            if value.guideDraft?.id == desktopID { value.guideDraft = nil }
+        }) else { return false }
+        permanentlyDeletedIDs.insert(desktopID)
+        hostChecks.invalidate(desktopID); operationNotes[desktopID] = nil
+        if recoveryDesktop?.id == desktopID { recoveryDesktop = nil }
+        if lastRemovedID == desktopID { lastRemovedID = nil }
+        return true
+    }
     @discardableResult func updatePreferences(_ update: (inout Preferences) -> Void) -> Bool {
         guard !writeLocked else { error = ConfigurationError.writeLocked.localizedDescription; return false }
         var next = preferences; update(&next)
+        // A guide in another window can autosave after removal. Do not retain
+        // its old connection details or allow them to reappear on relaunch.
+        let unavailable = Set(next.removedDesktops.map(\.id)).union(permanentlyDeletedIDs)
+        if let draft = next.guideDraft, unavailable.contains(draft.id) {
+            next.guideDraft = nil; next.guideStep = .computer
+        }
+        if let id = next.guideDesktopID, unavailable.contains(id) {
+            next.guideDesktopID = nil; next.guideStep = .computer
+        }
         do { try configuration.savePreferences(next); preferences = next; return true }
         catch { self.error = error.localizedDescription; return false }
+    }
+    @discardableResult func saveGuideDraft(_ desktop: Desktop) -> Bool {
+        guard save(desktop), let saved = desktops.first(where: { $0.id == desktop.id }) else { return false }
+        // Use the saved value: save() can clear evidence belonging to an old link.
+        return updatePreferences {
+            $0.guideDesktopID = saved.id
+            $0.guideDraft = saved
+        }
     }
     func refreshProfiles() {
         let url = fixtureMode ? configuration.directory.appendingPathComponent("chrome-state.json") : FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/Google/Chrome/Local State")
@@ -74,30 +167,87 @@ import CryptoKit
                 profiles = profiles.filter { var directory: ObjCBool = false; return FileManager.default.fileExists(atPath: root.appendingPathComponent($0.directory).path, isDirectory: &directory) && directory.boolValue }
             }
             profileProblem = profiles.contains(where: \.signedIn) ? nil : ConfigurationError.noProfiles.localizedDescription
-            if preferences.chromeProfileDirectory == nil, !preferences.chromeProfileEmail.isEmpty,
-               let match = try? ChromeProfiles.selected(in: profiles, preferences: preferences), !writeLocked {
-                _ = updatePreferences { $0.chromeProfileDirectory = match.directory }
-            }
         } catch { profiles = []; profileProblem = ConfigurationError.unreadableProfiles.localizedDescription }
     }
-    func chooseProfile(_ directory: String) {
-        guard let profile = profiles.first(where: { $0.directory == directory && $0.signedIn }) else { return }
-        _ = updatePreferences { $0.chromeProfileDirectory = profile.directory; $0.chromeProfileEmail = profile.email }
+    private func migrateConnectionProfiles() {
+        guard !writeLocked, !preferences.connectionProfilesMigrated || preferences.schemaVersion < 3 else { return }
+        do {
+            let legacy = preferences.connectionProfilesMigrated ? nil : preferences.legacyChromeProfile
+            let migrated = desktops.map { ChromeProfiles.migrate($0, legacy: legacy, profiles: profiles) }
+            if migrated != desktops { try configuration.saveDesktops(migrated); desktops = migrated }
+            let migratedDraft = preferences.guideDraft.map { ChromeProfiles.migrate($0, legacy: legacy, profiles: profiles) }
+            if !updatePreferences({ $0.guideDraft = migratedDraft; $0.connectionProfilesMigrated = true; $0.schemaVersion = 3 }) { writeLocked = true }
+        } catch { self.error = error.localizedDescription; writeLocked = true }
     }
-    var profileReady: Bool { (try? ChromeProfiles.selected(in: profiles, preferences: preferences)) != nil }
-    func connect(_ desktop: Desktop) {
-        guard InputValidation.chromeURL(desktop.chromeURL) else { error = "Use a supported Chrome Remote Desktop link."; return }
-        openChrome(desktop.chromeURL) { [weak self] in
-            guard let self else { return }
-            var item = desktop; item.lastLaunch = Date()
-            if self.save(item) { self.operationNotes[item.id] = "Opened in Chrome. A browser launch does not confirm a connected remote session." }
+    func newDesktop() -> Desktop {
+        refreshProfiles()
+        var desktop = Desktop(name: "")
+        let available = profiles.filter(\.signedIn)
+        if available.count == 1 { desktop.chromeProfile = available[0].reference }
+        return desktop
+    }
+    func profileReady(for desktop: Desktop) -> Bool { (try? ChromeProfiles.selected(in: profiles, reference: desktop.chromeProfile)) != nil }
+    func captureChromeConnection(_ completion: @escaping (Result<String, Error>) -> Void) {
+        guard !readingChromeConnection else { return }
+        guard !fixtureMode else { completion(.failure(ChromeCaptureError.unavailable)); return }
+        readingChromeConnection = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = Result { try ChromeTabReader.read() }
+            DispatchQueue.main.async {
+                self.readingChromeConnection = false
+                completion(result)
+            }
         }
     }
-    func openChrome(_ value: String = InputValidation.devicePicker, completed: (() -> Void)? = nil) {
+    func inspectChromeSetup(_ request: ChromeSetupRead, completion: @escaping (Result<ChromeSetupSnapshot?, Error>) -> Void) {
+        guard !readingChromeConnection else { return }
+        guard !fixtureMode else { completion(.failure(ChromeCaptureError.unavailable)); return }
+        readingChromeConnection = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = Result { try ChromeTabReader.inspectSetup(request) }
+            DispatchQueue.main.async {
+                self.readingChromeConnection = false
+                completion(result)
+            }
+        }
+    }
+    func openChromeSetup(_ desktop: Desktop, session: ChromeSetupCapture, completed: () -> Void) {
+        refreshProfiles()
+        do {
+            let profile = try ChromeProfiles.selected(in: profiles, reference: desktop.chromeProfile)
+            guard !fixtureMode, let chrome = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.google.Chrome") else { throw ConfigurationError.chromeMissing }
+            let process = Process()
+            process.executableURL = chrome.appendingPathComponent("Contents/MacOS/Google Chrome")
+            process.arguments = ["--profile-directory=\(profile.directory)", "--new-window", session.bootstrapURL]
+            process.standardOutput = FileHandle.nullDevice; process.standardError = FileHandle.nullDevice
+            try process.run()
+            completed()
+        } catch { self.error = error.localizedDescription }
+    }
+    func connect(_ desktop: Desktop, presentation: ChromeLaunch.Presentation = .window) {
+        guard !writeLocked else { error = ConfigurationError.writeLocked.localizedDescription; return }
+        guard let saved = desktops.first(where: { $0.id == desktop.id }) else { error = "Restore this computer before connecting."; return }
+        guard saved.chromeProfile == desktop.chromeProfile, saved.chromeURL == desktop.chromeURL else {
+            error = "This computer’s account or connection link changed. Try Connect again from its current row."; return
+        }
+        guard desktop.hasDirectConnection else { error = "Save this computer’s individual connection link before connecting. Choose Edit, then Choose computer in Chrome and select the computer in Google’s list."; return }
+        openChrome(desktop, presentation: presentation) { [weak self] in
+            guard let self else { return }
+            var item = desktop; item.lastLaunch = Date()
+            if self.save(item) { self.operationNotes[item.id] = (presentation == .window ? "Opened in a separate Chrome window." : "Opened in a Chrome tab.") + " A browser launch does not confirm a connected remote session." }
+        }
+    }
+    func openChrome(_ desktop: Desktop, picker: Bool = false, presentation: ChromeLaunch.Presentation = .window, completed: (() -> Void)? = nil) {
         refreshProfiles()
         let chrome = fixtureMode ? nil : NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.google.Chrome")
         let arguments: [String]
-        do { arguments = try ChromeLaunch.arguments(url: value, profiles: profiles, preferences: preferences, applicationAvailable: fixtureMode || chrome != nil) }
+        do {
+            if picker {
+                let profile = try ChromeProfiles.selected(in: profiles, reference: desktop.chromeProfile)
+                guard fixtureMode || chrome != nil else { throw ConfigurationError.chromeMissing }
+                arguments = ["--profile-directory=\(profile.directory)", InputValidation.devicePicker]
+            } else { arguments = try ChromeLaunch.arguments(desktop: desktop, profiles: profiles, applicationAvailable: fixtureMode || chrome != nil, presentation: presentation) }
+        }
         catch { self.error = error.localizedDescription; return }
         if fixtureMode { completed?(); return }
         guard let chrome else { return }
@@ -115,6 +265,8 @@ import CryptoKit
         NSWorkspace.shared.openApplication(at: chrome, configuration: NSWorkspace.OpenConfiguration())
     }
     func check(_ desktop: Desktop, recover: Bool = false) {
+        guard desktops.contains(where: { $0.id == desktop.id }) else { return }
+        refreshOperationNotes()
         guard desktop.hostPlatform.usesSSHRecovery else { recoveryDesktop = desktop; return }
         guard !fixtureMode else { error = "Preview data cannot contact SSH hosts."; return }
         guard let target = desktop.target, InputValidation.target(target) else { recoveryDesktop = desktop; return }
@@ -148,19 +300,22 @@ import CryptoKit
         alert.addButton(withTitle: "Continue"); alert.addButton(withTitle: "Cancel")
         return alert.runModal() == .alertFirstButtonReturn
     }
-    func terminal(_ desktop: Desktop, action: String) {
-        guard !fixtureMode else { error = "Preview data cannot authorise SSH or change hosts."; return }
-        guard desktop.hostPlatform.usesSSHRecovery else { error = "Use the host-local recovery kit for this operating system."; return }
+    @discardableResult func terminal(_ desktop: Desktop, action: String) -> Bool {
+        guard !writeLocked, let saved = desktops.first(where: { $0.id == desktop.id }), saved.target == desktop.target, saved.identityPath == desktop.identityPath, saved.hostPlatform == desktop.hostPlatform else { error = "Save this computer’s current recovery details before continuing."; return false }
+        guard !fixtureMode else { error = "Preview data cannot authorise SSH or change hosts."; return false }
+        guard desktop.hostPlatform.usesSSHRecovery else { error = "Use the host-local recovery kit for this operating system."; return false }
         let identity = desktop.identityPath ?? defaultIdentity
-        guard InputValidation.identityPath(identity), action == "generate-key" || InputValidation.target(desktop.target) else { error = "Save a valid SSH address and key path first."; return }
+        guard InputValidation.identityPath(identity), action == "generate-key" || InputValidation.target(desktop.target) else { error = "Save a valid SSH address and key path first."; return false }
         let messages = [
+            "setup-access": "Set up SSH access to \(desktop.target ?? "") using \(identity). Telynd creates a key only if both key files are absent, then adds its public key to that Linux account. Choose a passphrase, compare the host fingerprint and enter the Linux login password in Terminal when requested. SSH must already be enabled and reachable. Recovery is installed separately.",
             "authorise": "Authorise \(desktop.target ?? "") using \(identity). This adds the public key to that account. Enter Linux passwords directly in Terminal and verify any new host fingerprint against a trusted record. Recovery is not installed by this action.",
             "install": "Install recovery for \(desktop.target ?? ""). Administrator approval installs fixed recovery and read-only status helpers, a two-minute timer and narrow password-free permissions for those helpers. Chrome registration and Google credentials are unchanged.",
             "disable": "Disable Telynd’s timer for this account. Chrome and its registration remain installed. SSH authorisation stays in place.",
             "uninstall": "Remove only the verified Telynd recovery components for this account. Chrome registration, unrelated files and SSH authorisations are preserved. Modified or unrecognised components will require review.",
             "generate-key": "Create a new key at \(identity). Existing files will not be overwritten. Choose a passphrase in the standard SSH prompt; Telynd does not choose or save it."
         ]
-        if let message = messages[action], !confirm(action == "generate-key" ? "Create an SSH key?" : "\(action.capitalized) access for \(desktop.name)?", message) { return }
+        let title = action == "setup-access" ? "Approve this Mac for \(desktop.name)?" : (action == "generate-key" ? "Create an SSH key?" : "\(action.capitalized) access for \(desktop.name)?")
+        if let message = messages[action], !confirm(title, message) { return false }
         do {
             let folder = configuration.directory.appendingPathComponent("Launchers")
             try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
@@ -174,8 +329,9 @@ import CryptoKit
             try script.write(to: file, atomically: true, encoding: .utf8)
             try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: file.path)
             operationNotes[desktop.id] = "Continue in Terminal, then return here and recheck readiness. Interrupted operations may have made partial changes."
-            if !NSWorkspace.shared.open(file) { error = "Terminal could not be opened. No completion was verified; try the action again." }
-        } catch { self.error = error.localizedDescription }
+            if !NSWorkspace.shared.open(file) { error = "Terminal could not be opened. No completion was verified; try the action again."; return false }
+            return true
+        } catch { self.error = error.localizedDescription; return false }
     }
     func exportRecoveryKit(_ desktop: Desktop) {
         guard !fixtureMode else { error = "Recovery kits cannot be exported from synthetic preview data."; return }
@@ -201,6 +357,47 @@ import CryptoKit
             NSWorkspace.shared.activateFileViewerSelecting([destination])
         } catch { self.error = "Kit export did not complete: \(error.localizedDescription). Review the destination before retrying." }
     }
+    func copyLinuxSetupDownloadLink() -> Bool {
+        do {
+            let data = try Data(contentsOf: resources.appendingPathComponent(LinuxSetupDownload.filename))
+            guard let url = LinuxSetupDownload.verifiedURL(for: data) else {
+                error = "The download link does not match this build’s installer. Use the file-transfer alternative or update Telynd."
+                return false
+            }
+            NSPasteboard.general.clearContents()
+            guard NSPasteboard.general.setString(url.absoluteString, forType: .string) else {
+                error = "The download link could not be copied. Try again."
+                return false
+            }
+            return true
+        } catch {
+            self.error = "The bundled setup helper could not be read. Rebuild or reinstall Telynd before continuing."
+            return false
+        }
+    }
+    func exportLinuxSetupHelper() {
+        guard !fixtureMode else { error = "The preview cannot export installers."; return }
+        let panel = NSSavePanel(); panel.title = "Save the Linux installer on this Mac"
+        panel.nameFieldStringValue = LinuxSetupDownload.filename
+        guard panel.runModal() == .OK, let destination = panel.url else { return }
+        do {
+            let data = try Data(contentsOf: resources.appendingPathComponent(LinuxSetupDownload.filename))
+            try data.write(to: destination, options: .atomic)
+            NSWorkspace.shared.activateFileViewerSelecting([destination])
+        } catch { self.error = "The helper could not be saved. Choose a writable folder and try again." }
+    }
+    func checkPairing(_ card: PairingCard, desktop: Desktop, control: PairingProbeControl, completion: @escaping (Result<String, Error>) -> Void) {
+        guard !fixtureMode else { completion(.failure(PairingError.unreachable)); return }
+        guard desktops.contains(desktop) else { completion(.failure(PairingError.cancelled)); return }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = Result { try PairingProbe.find(card, control: control) }
+            DispatchQueue.main.async {
+                guard !control.cancelled, self.desktops.contains(desktop) else { completion(.failure(PairingError.cancelled)); return }
+                completion(result)
+            }
+        }
+    }
+    func resetRecoveryCheck(_ id: UUID) { hostChecks.invalidate(id) }
     func importHostReport(_ desktop: Desktop) {
         let panel = NSOpenPanel(); panel.canChooseDirectories = false; panel.allowsMultipleSelection = false
         panel.title = "Import a report exported by this computer’s recovery kit"
@@ -228,9 +425,16 @@ import CryptoKit
                 let fields = ReadinessReport(output: output).values
                 guard fields["target"] == (item.target ?? ""), fields["identity"] == (item.identityPath ?? defaultIdentity) else { continue }
                 let value = fields["result"] ?? "unknown"
-                let labels = ["awaiting_terminal": "The action was prepared for Terminal; no changes or completion have been verified.", "ssh_ready": "Public-key authorisation finished. SSH account access was verified using your SSH configuration; other configured keys may have been used.", "key_validation_failed": "The selected key could not be read or validated. Check its format, permissions and passphrase.", "key_pair_mismatch": "The .pub file does not match the selected private key. Nothing was sent to the host.", "installed": "Recovery installation passed its root-side read-back.", "disabled": "The recovery timer was disabled.", "uninstalled": "Verified Telynd recovery components were removed.", "key_created": "The new SSH key was created; authorise it on the host next.", "authentication_failed": "SSH authorisation failed in Terminal. Check the account, host identity and login details before retrying.", "verification_unavailable": "Authorisation was attempted but a new non-interactive SSH connection could not be verified.", "failed": "Setup did not complete. Some steps may have changed the host.", "cancelled": "Setup was interrupted. Some steps may have changed the host.", "in_progress": "Setup was started in Terminal; its final outcome is not yet known."]
+                let labels = ["awaiting_terminal": "The action was prepared for Terminal; no changes or completion have been verified.", "ssh_ready": "Public-key authorisation finished. SSH account access was verified using your SSH configuration; other configured keys may have been used.", "key_validation_failed": "The selected key could not be read or validated. Check its format, permissions and passphrase.", "key_pair_mismatch": "The .pub file does not match the selected private key. Nothing was sent to the host.", "installed": "Recovery installation passed its root-side read-back.", "disabled": "The recovery timer was disabled.", "uninstalled": "Verified Telynd recovery components were removed.", "key_created": "The new SSH key was created; authorise it on the host next.", "authentication_failed": "SSH authorisation failed in Terminal. Check the account, host identity and login details before retrying.", "verification_unavailable": "Authorisation ran, but password-free access failed. Open Telynd Setup on Linux and choose Check again; resolve any folder-permission warning before retrying.", "permissions_need_attention": "Linux folder permissions prevent key login. Open Telynd Setup on Linux, choose Check again and review Fix folder permissions. Shared or administrator-owned paths need administrator review.", "failed": "Setup did not complete. Some steps may have changed the host.", "cancelled": "Setup was interrupted. Some steps may have changed the host.", "in_progress": "Setup was started in Terminal; its final outcome is not yet known."]
                 operationNotes[item.id] = (labels[value] ?? "The setup result is unknown.") + " Recheck readiness for current evidence."
             }
         }
+    }
+    func terminalResult(_ desktop: Desktop, action: String) -> String? {
+        let file = configuration.directory.appendingPathComponent("Launchers/\(desktop.id.uuidString)-\(action).receipt")
+        guard let output = try? String(contentsOf: file, encoding: .utf8) else { return nil }
+        let values = ReadinessReport(output: output).values
+        guard values["action"] == action, values["target"] == desktop.target, values["identity"] == (desktop.identityPath ?? defaultIdentity) else { return nil }
+        return values["result"]
     }
 }

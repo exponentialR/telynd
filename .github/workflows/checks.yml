@@ -32,6 +32,21 @@ jobs:
           for script in scripts/*.sh scripts/*.command tests/*.sh build.sh; do
             bash -n "$script"
           done
+      - name: Verify the desktop setup helper on a disposable Linux runner
+        timeout-minutes: 6
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y python3-tk pkexec xvfb
+          dpkg-deb --info assets/telynd-setup_0.2.2_all.deb
+          sudo dpkg -i assets/telynd-setup_0.2.2_all.deb
+          # Exercise the missing-server path on this disposable runner too.
+          sudo apt-get remove -y openssh-server
+          test ! -x /usr/sbin/sshd
+          sudo /usr/lib/telynd-setup/prepare-ssh
+          systemctl is-active ssh.service || systemctl is-active ssh.socket
+          ssh-keyscan -T 5 -t ed25519 127.0.0.1 > /tmp/telynd-ci-host-key
+          test -s /tmp/telynd-ci-host-key
+          xvfb-run -a python3 -m unittest discover -s tests -p test_linux_helper.py -v
       - name: Exercise recovery decisions and locking
         run: python3 -m unittest discover -s tests -v
 

@@ -24,6 +24,13 @@ for tool in flock stat awk tail id mkdir chmod; do
 done
 cd
 owner=$(id -u)
+# Password login can work while StrictModes refuses a key in a writable home.
+# Stop before authorisation changes; shared-folder policy needs user review.
+home_mode=$(stat -c %a .)
+if [ -L "$HOME" ] || [ "$(stat -c %u .)" != "$owner" ] || [ "$((0$home_mode & 022))" -ne 0 ]; then
+  echo 'The Linux home folder has unsafe ownership or permissions. Open Telynd Setup on Linux and review Fix folder permissions, or ask the administrator. No key was added.' >&2
+  exit 23
+fi
 [ ! -L .ssh ] || fail 'Refusing a symlinked .ssh directory.'
 if [ ! -e .ssh ]; then mkdir -m 700 .ssh; fi
 [ -d .ssh ] && [ "$(stat -c %u .ssh)" = "$owner" ] || fail 'Unsafe .ssh directory.'

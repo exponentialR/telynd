@@ -111,3 +111,14 @@ track operational evidence. #11 tracks the Mac client signed download.
 
 Sources checked on the decision date. Installed service layout and policy are
 verified at runtime; upstream `main` links can change.
+
+## Linux pairing before recovery
+
+The [desktop pairing helper](pairing.md) precedes the existing SSH recovery
+protocol. It exports an expiring public-metadata card; the Mac explicitly
+checks a bounded set of IPv4 candidates for matching public keyscan output.
+The card is user-supplied, not signed authentication. Pairing never authorises
+a key, writes known-host trust or installs a recovery timer. Local SSH
+preparation is a fixed package-owned PolicyKit action; authorisation and
+recovery keep their existing separate approval boundaries. Mac/Windows kits
+are unchanged.

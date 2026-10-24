@@ -10,21 +10,66 @@ not yet supported.
 
 ## Set up access
 
-Open **Recovery settings** on a computer's card. Enter its SSH account/address
-and choose an existing private key with a matching `.pub` file. If you need a
-key, choose an unused path and **Create a new SSH key**. Choose a passphrase in
-the standard SSH prompt. Existing keys are never overwritten; Telynd does not
-choose an empty passphrase or store one.
+Open a computer's **… → Recovery settings…** and select **Linux**. Telynd
+checks previously saved access automatically when this screen opens. New setup
+has three steps. The header shows the current step and all three stages.
+**Enable automatic recovery…** stays visible at the bottom, with the reason
+it is locked until current access and installation requirements pass:
 
-**Save and check readiness** performs a bounded, non-interactive SSH check.
-It reads service and installation state; it does not install anything, add
-keys or start services. Its messages distinguish missing network access,
-authentication and host identity problems. When first trusting a host, compare
-its fingerprint against a trusted record using **SSH Terminal**. A changed
-host identity needs investigation; do not bypass the warning or blindly delete
-a known-host record.
+1. Follow [guided pairing](pairing.md): download and install the desktop helper inside
+   the Ubuntu/Debian remote desktop, approve SSH preparation if needed and bring its setup
+   card back to this Mac. Confirm the PC, choose **Check this computer**, then
+   **Use this computer**. Telynd selects a listed address whose public host key
+   matches the card; it does not authenticate or accept trust. Existing saved
+   connections skip pairing. Advanced users can expand **Advanced: enter
+   connection details** to enter a username/address or paste one simple
+   `ssh user@computer` command. SSH options and custom ports are not accepted.
+2. Choose **Approve this Mac…**. Telynd creates a key pair if both files are
+   absent, or reuses the selected pair. New connections normally use
+   `~/.ssh/telynd_ed25519`; existing SSH settings retain their previous key.
+   Existing or incomplete key files are never overwritten. Choose a passphrase,
+   compare the host fingerprint against a trusted record and enter the Linux
+   login password directly in Terminal when requested. macOS Keychain handles
+   supported passphrase storage; Telynd does not choose or save a password.
+3. Return to Telynd. It reads the action's receipt and checks current access.
+   Once the host's supported Chrome service and required tools are verified,
+   **Enable automatic recovery…** offers the separate administrator-approved
+   installation. Already-enabled recovery is shown without repeating setup.
 
-**Authorise SSH access** is a separate, confirmed action. Before agent or host
+**Check access** skips authorisation and performs a bounded read-only
+check. Key selection, an interactive SSH Terminal, detailed status, manual
+recovery, disabling and uninstalling are under **Advanced settings & diagnostics**.
+Editing the target or key makes the old verification inapplicable until checked.
+
+For the advanced manual route, SSH must already be enabled and reachable.
+The desktop helper can enable it locally after administrator approval, but
+Telynd cannot bootstrap a computer through a connection that does not exist.
+It cannot infer SSH access from a Google URL or grant access without an existing
+login method. The normal pairing route supplies these details without commands;
+the following command-based fallback is for advanced users. The in-app help explains Ubuntu's Secure Shell settings and links
+[Ubuntu's OpenSSH guide](https://ubuntu.com/server/docs/how-to/security/openssh-server/).
+It also provides fixed read-only commands to show the remote username,
+addresses and public host-key fingerprints. **Copy Linux details command**
+provides one command to run in a Terminal on Linux through an existing Google
+session or physical access. It prints a labelled username and ready-to-copy
+`ssh user@address` lines. If the Tailscale CLI reports an IPv4 address, that
+route is shown separately; use it only when both devices already share that
+Tailscale network. See [Tailscale's connectivity guide](https://tailscale.com/docs/how-to/connect-to-devices).
+The other candidates can include virtual interfaces and are not proof of
+reachability. Choose the network shared with this Mac, or ask the administrator.
+Copy just one SSH line, then click **Paste SSH address** to fill both fields.
+IPv6 is omitted because this SSH form does not support it. The separate SHA256
+fingerprints identify the server: compare the matching key type during the SSH
+trust prompt; do not put them into either address field. If password login is disabled
+and no key already works, ask the administrator to authorise this Mac. Telynd
+does not enable password authentication or open firewall/router ports.
+
+A changed host fingerprint requires investigation through a trusted route.
+Telynd leaves host checks enabled; do not blindly remove the old trust record.
+Authorisation adds only the selected public key to the specified Linux account
+and then verifies non-interactive account access. Recovery is installed separately.
+
+During the confirmed **Approve this Mac** action, before agent or host
 changes, OpenSSH validates a single public-key snapshot. It derives the public
 identity from the selected private key and compares it with that snapshot. A mismatch or
 unreadable private key stops setup. Protected keys may prompt for their
@@ -64,11 +109,10 @@ local commands and SSH connection sharing for these connections, including the
 verification step. Hostname and routing configuration can still be inherited;
 an SSH agent can authenticate locally without being forwarded to the host.
 
-After readiness identifies the supported service, **Install recovery** explains
+After readiness identifies the supported service, **Enable automatic recovery** explains
 the scope and opens Terminal for administrator approval. The installer validates
 a narrow sudoers rule, installs root-owned components, records hashes, and
-checks permissions, timer enablement and timer activity. Return to Telynd and
-recheck current readiness. Terminal outcomes are stored in private receipts;
+checks permissions, timer enablement and timer activity. Return to Telynd; the guided flow checks current readiness automatically. Terminal outcomes are stored in private receipts;
 an interrupted operation may have made partial changes and is never described
 as rolled back.
 
@@ -134,6 +178,8 @@ the exact public key in that account's `authorized_keys` before changing it.
 | --- | --- |
 | SSH unreachable | Wake the computer; check its address and network route |
 | Authentication needed | Choose the correct key; authorise SSH access in Terminal |
+| Folder permissions need attention | In Linux Telynd Setup, choose Check again and review Fix folder permissions; unexpected ownership or links need administrator review |
+| Authorisation ran, key login still fails | Check Linux folder permissions first; if safe, ask the administrator to review SSH policy |
 | New/changed identity | Verify the fingerprint through a trusted route |
 | No systemd / non-Linux | Keep connection-only access |
 | Chrome service missing | Configure Google's Linux host for this desktop account |

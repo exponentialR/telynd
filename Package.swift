@@ -8,6 +8,7 @@ let package = Package(
     targets: [
         .target(name: "TelyndCore"),
         .executableTarget(name: "Telynd", dependencies: ["TelyndCore"]),
-        .testTarget(name: "TelyndCoreTests", dependencies: ["TelyndCore"], path: "tests/TelyndCoreTests")
+        .testTarget(name: "TelyndCoreTests", dependencies: ["TelyndCore"], path: "tests/TelyndCoreTests"),
+        .testTarget(name: "TelyndAppTests", dependencies: ["Telynd", "TelyndCore"], path: "tests/TelyndAppTests")
     ]
 )

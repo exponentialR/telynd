@@ -88,6 +88,14 @@ package manifest. Normal Mac CI exercises ZIP validation and signature
 preservation without signing credentials. The public ZIP is recreated after
 stapling.
 
+The app's guided computer selection and **Use open computer** fallback need Apple Events automation
+consent for Chrome. The build includes its fixed usage explanation; artifact
+validation rejects a missing or altered explanation. The signer applies only
+`scripts/macos-app.entitlements` from the trusted workflow checkout. The
+artifact cannot supply signing entitlements. A real Developer ID release must
+also verify the normal Automation approval and denial paths; the local ad-hoc
+pilot does not establish those signed-distribution behaviours.
+
 The output is a **draft GitHub release**, with an ARM64 ZIP, `SHA256SUMS`,
 `SOURCE_REVISION.txt` and `BUILD_INFO.txt`. There is no automatic public publish
 step. Retrying an existing draft is deliberately not an overwrite operation:
