@@ -113,14 +113,19 @@ try {
     $unsafeRegistryAcl.AddAccessRule((New-Object Security.AccessControl.RegistryAccessRule(([Security.Principal.SecurityIdentifier]'S-1-5-11'),'SetValue','Allow')))
     Set-Acl -Path $registryPath -AclObject $unsafeRegistryAcl
     Assert-CheckRefused 'Writable service registry accepted'
-    Set-Acl -Path $registryPath -AclObject $registryAcl
+    # RegistrySecurity persists only sections marked modified; passing the
+    # untouched Get-Acl snapshot back to Set-Acl silently leaves our test ACE.
+    $restoreRegistryAcl=New-Object Security.AccessControl.RegistrySecurity
+    $restoreRegistryAcl.SetSecurityDescriptorSddlForm($registryAcl.GetSecurityDescriptorSddlForm([Security.AccessControl.AccessControlSections]::Access),[Security.AccessControl.AccessControlSections]::Access)
+    Set-Acl -Path $registryPath -AclObject $restoreRegistryAcl
     $serviceSddl=[Telynd.ServicePolicy]::Security($service)
     $unsafeSddl=New-Object Security.AccessControl.RawSecurityDescriptor($serviceSddl)
     $unsafeSddl.DiscretionaryAcl.InsertAce(0,(New-Object Security.AccessControl.CommonAce([Security.AccessControl.AceFlags]::None,[Security.AccessControl.AceQualifier]::AccessAllowed,2,([Security.Principal.SecurityIdentifier]'S-1-5-11'),$false,$null)))
-    & sc.exe sdset $service ($unsafeSddl.GetSddlForm([Security.AccessControl.AccessControlSections]::All)) | Out-Null
+    & sc.exe sdset $service ($unsafeSddl.GetSddlForm([Security.AccessControl.AccessControlSections]::Access)) | Out-Null
     Assert ($LASTEXITCODE -eq 0) 'Unsafe fixture service DACL update failed'
     Assert-CheckRefused 'Writable service DACL accepted'
-    & sc.exe sdset $service $serviceSddl | Out-Null
+    $restoreSddl=New-Object Security.AccessControl.RawSecurityDescriptor($serviceSddl)
+    & sc.exe sdset $service ($restoreSddl.GetSddlForm([Security.AccessControl.AccessControlSections]::Access)) | Out-Null
     Assert ($LASTEXITCODE -eq 0) 'Fixture service DACL restoration failed'
     Write-Host 'Validating restored host permissions and policy lifecycle'
     $original=[Telynd.ServicePolicy]::Read($service) | ConvertTo-Json -Depth 8 -Compress

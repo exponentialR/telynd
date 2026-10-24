@@ -44,6 +44,27 @@ Google Mac bundle refused a damaged sealed subcomponent; it was not repaired or
 used for a live recovery test. This is implementer self-review, not an independent
 security audit.
 
+### Critical-review follow-up
+
+The follow-up fixes preserve Windows hosts intentionally stopped by Google:
+Manual and Disabled modes remain stopped, and setup/manual recovery require
+Automatic mode. The Windows fixture now executes the production host validator
+with only its synthetic installation root/signature provider substituted. It
+exercises rejected launch paths/accounts, invalid signatures/publishers, writable
+executables, registry keys and service DACLs, then verifies safe restoration.
+This exposed and corrected a real Windows PowerShell 5.1 registry-provider lookup
+failure that the earlier whole-validator substitution had hidden.
+
+The Mac kit uses a native descriptor lock that releases after process death;
+fixtures prove concurrent refusal, partial readiness while busy and recovery
+after SIGKILL. Legacy directory locks remain fail-closed with partial readiness.
+Unsupported native locking is refused before helper/agent installation. Review
+also found that malformed retry state could block ticks while reporting ready:
+checks now report partial readiness, and state updates use an atomic replacement.
+Local follow-up validation passed 30 Swift tests and 42 discovered Python tests
+(41 run on macOS, one Linux-only skip). Native Windows and launchd verification
+remain separate disposable CI checks; consult the PR's final source checks.
+
 ### Real-host evidence still required
 
 Keep #16/#17 open for real installed Google hosts and their signing/distribution
