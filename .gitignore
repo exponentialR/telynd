@@ -1,0 +1,13 @@
+build/
+.DS_Store
+__pycache__/
+# Local machine details and screenshots are never release assets.
+backups/
+launcher-preview.png
+*.local.json
+*.local.png
+*.local.svg
+.env
+.env.*
+*.pem
+*.key

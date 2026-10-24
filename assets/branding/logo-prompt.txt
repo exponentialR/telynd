@@ -1,0 +1,8 @@
+Generated using the built-in image_gen tool on 24 October 2026.
+Asset: telynd-logo.png (transparent PNG).
+
+Use case: logo-brand.
+Asset type: primary logo for Telynd, a native Mac app that brings remote desktops, SSH access and recovery into one place.
+Create a single refined, original logo lockup on a genuinely transparent background. A distinctive compact geometric symbol at the left, with the exact word "Telynd" at the right. Spell the name T-e-l-y-n-d, capital T and remaining lowercase. The symbol should subtly combine a capital T with two connected endpoints or an open portal, suggesting dependable remote connection. Make it a confident, simple silhouette that remains recognisable at small app-icon sizes, with thoughtful negative space and balanced optical proportions.
+Style: polished flat vector-style identity, precise curves and geometry, contemporary and understated, suitable for an open-source developer tool and a macOS app. Use the existing app's blue visual direction: a rich cobalt-blue symbol and deep midnight-navy lettering. Clean custom-feeling sans-serif wordmark, generous but purposeful spacing. Keep the wordmark highly legible. One symbol, one wordmark, centred together with ample transparent padding.
+Avoid: a presentation sheet, multiple variations, mockups, device photographs, literal laptops, generic globe/network webs, padlocks, shields, arrows, ornamental circuits, slogans, tiny details, drop shadows, bevels, 3D effects, watermarks or any background panel. Deliver the logo itself, not a scene.

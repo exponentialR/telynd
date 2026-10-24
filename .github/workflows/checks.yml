@@ -1,0 +1,28 @@
+name: Checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  recovery:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Check shell syntax
+        run: |
+          for script in scripts/*.sh scripts/*.command build.sh; do
+            bash -n "$script"
+          done
+      - name: Exercise recovery decisions and locking
+        run: python3 -m unittest discover -s tests -v
+
+  mac-app:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Build and verify app bundle
+        run: bash build.sh

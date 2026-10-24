@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Telynd app icon">
+<rect x="64" y="64" width="896" height="896" rx="196" fill="#0D1C3A"/><g transform="translate(244.48 244.48) scale(2.09)"><g xmlns="http://www.w3.org/2000/svg" fill="#FFFFFF">
+    <path id="portal" d="M130 18C138 15 144 20 144 29V49C144 55 141 58 135 60L66 82C60 84 56 90 56 96V154C56 160 59 163 65 165L96 175C108 179 109 190 96 195L42 211C22 217 12 205 12 188V83C12 67 22 54 38 49Z" />
+    <use href="#portal" transform="rotate(180 128 128)" />
+  </g>
+</g>
+</svg>
