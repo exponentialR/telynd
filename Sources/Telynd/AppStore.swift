@@ -29,7 +29,7 @@ import CryptoKit
         let existing = ssh.appendingPathComponent("id_ed25519").path
         return FileManager.default.fileExists(atPath: existing) ? existing : ssh.appendingPathComponent("telynd_ed25519").path
     }
-    init() {
+    convenience init() {
         let home = FileManager.default.homeDirectoryForCurrentUser
         var directory = home.appendingPathComponent("Library/Application Support/Telynd")
         var fixture = false
@@ -38,10 +38,19 @@ import CryptoKit
             directory = URL(fileURLWithPath: path); fixture = true
         }
         #endif
+        self.init(configuration: ConfigurationStore(directory: directory), fixture: fixture)
+    }
+    #if DEBUG
+    // Tests use isolated settings and retain the existing fixture safety gates.
+    convenience init(configuration: ConfigurationStore) {
+        self.init(configuration: configuration, fixture: true)
+    }
+    #endif
+    private init(configuration: ConfigurationStore, fixture: Bool) {
         fixtureMode = fixture
-        configuration = ConfigurationStore(directory: directory)
+        self.configuration = configuration
         do {
-            if !fixture { try configuration.migrateLegacy(from: home.appendingPathComponent("Library/Application Support/Remote Desktops")) }
+            if !fixture { try configuration.migrateLegacy(from: FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/Remote Desktops")) }
             desktops = try configuration.loadDesktops()
             preferences = try configuration.loadPreferences(existingDesktops: !desktops.isEmpty)
         } catch { self.error = error.localizedDescription; writeLocked = true }
@@ -69,6 +78,14 @@ import CryptoKit
         var next = preferences; update(&next)
         do { try configuration.savePreferences(next); preferences = next; return true }
         catch { self.error = error.localizedDescription; return false }
+    }
+    @discardableResult func saveGuideDraft(_ desktop: Desktop) -> Bool {
+        guard save(desktop), let saved = desktops.first(where: { $0.id == desktop.id }) else { return false }
+        // Use the saved value: save() can clear evidence belonging to an old link.
+        return updatePreferences {
+            $0.guideDesktopID = saved.id
+            $0.guideDraft = saved
+        }
     }
     func refreshProfiles() {
         let url = fixtureMode ? configuration.directory.appendingPathComponent("chrome-state.json") : FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/Google/Chrome/Local State")

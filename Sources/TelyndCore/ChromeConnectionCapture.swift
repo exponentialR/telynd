@@ -21,3 +21,20 @@ public enum ChromeConnectionCapture {
         return value
     }
 }
+
+/// Owned by one editor. A result belongs to its original request and draft.
+public struct ChromeCaptureRequests {
+    private var pending: (id: UUID, desktop: Desktop)?
+    public init() {}
+    public mutating func begin(for desktop: Desktop) -> UUID {
+        let id = UUID()
+        pending = (id, desktop)
+        return id
+    }
+    public mutating func invalidate() { pending = nil }
+    public mutating func consume(_ id: UUID, current: Desktop) -> Bool {
+        guard let pending, pending.id == id else { return false }
+        self.pending = nil
+        return pending.desktop == current
+    }
+}

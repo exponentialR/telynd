@@ -219,14 +219,17 @@ struct ConnectionLinkFields: View {
     @Binding var desktop: Desktop
     @State private var pasteError: String?
     @State private var manualEntryExpanded = false
+    @State private var captureRequests = ChromeCaptureRequests()
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Connection link").font(.subheadline.weight(.medium))
             HStack {
-                Button("Choose computer in Chrome") { store.openChrome() }.disabled(!store.profileReady)
+                Button("Choose computer in Chrome") { captureRequests.invalidate(); store.openChrome() }.disabled(!store.profileReady)
                 Button("Use open computer") {
                     pasteError = nil
+                    let request = captureRequests.begin(for: desktop)
                     store.captureChromeConnection { result in
+                        guard captureRequests.consume(request, current: desktop) else { return }
                         switch result {
                         case .success(let link): desktop.chromeURL = link
                         case .failure(let error): pasteError = error.localizedDescription
@@ -246,9 +249,10 @@ struct ConnectionLinkFields: View {
                 VStack(alignment: .leading, spacing: 10) {
                     TextField("https://remotedesktop.google.com/access/session/…", text: Binding(
                         get: { desktop.chromeURL == InputValidation.devicePicker || desktop.chromeURL == InputValidation.devicePicker + "/" ? "" : desktop.chromeURL },
-                        set: { desktop.chromeURL = $0.isEmpty ? InputValidation.devicePicker : $0; pasteError = nil }
+                        set: { captureRequests.invalidate(); desktop.chromeURL = $0.isEmpty ? InputValidation.devicePicker : $0; pasteError = nil }
                     )).accessibilityLabel("Individual computer connection link")
                     Button("Paste link") {
+                        captureRequests.invalidate()
                         guard let value = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), InputValidation.directChromeURL(value) else {
                             pasteError = "Copy the address after opening your computer in Chrome Remote Desktop."; return
                         }
@@ -257,7 +261,8 @@ struct ConnectionLinkFields: View {
                     if !InputValidation.chromeURL(desktop.chromeURL) { Text("This is not an individual Google Remote Desktop link.").font(.caption).foregroundStyle(.red) }
                 }.padding(.top, 10)
             }.font(.callout)
-        }
+        }.onChange(of: desktop) { _ in captureRequests.invalidate() }
+            .onDisappear { captureRequests.invalidate() }
     }
 }
 struct OnboardingGuide: View {
@@ -269,7 +274,7 @@ struct OnboardingGuide: View {
     func saveDraft() -> Bool {
         var value = draft
         if let saved = chosen, saved.id == draft.id { value.lastLaunch = saved.lastLaunch; value.userConfirmedConnection = saved.userConfirmedConnection }
-        return store.save(value)
+        return store.saveGuideDraft(value)
     }
     func finish(recovery: Bool = false) {
         if store.updatePreferences({ $0.guideStep = .finished; $0.guideCompleted = true; $0.guideDraft = nil }) {
@@ -319,7 +324,7 @@ struct OnboardingGuide: View {
                 switch step {
                 case .welcome: Button("Get started") { advance(.profile) }.buttonStyle(PrimaryButton()).keyboardShortcut(.defaultAction)
                 case .profile: Button("Continue") { advance(.computer) }.buttonStyle(PrimaryButton()).keyboardShortcut(.defaultAction).disabled(!store.profileReady)
-                case .computer: Button("Save and continue") { if saveDraft(), store.updatePreferences({ $0.guideDesktopID = draft.id }) { advance(.connect) } }.buttonStyle(PrimaryButton()).keyboardShortcut(.defaultAction).disabled(!draft.valid || !draft.hasDirectConnection)
+                case .computer: Button("Save and continue") { if saveDraft() { advance(.connect) } }.buttonStyle(PrimaryButton()).keyboardShortcut(.defaultAction).disabled(!draft.valid || !draft.hasDirectConnection)
                 case .connect: Button("Continue after opening Chrome") { advance(.recovery) }.keyboardShortcut(.defaultAction).disabled(chosen?.lastLaunch == nil || chosen?.hasDirectConnection != true)
                 case .recovery: Button("Finish with connection-only access") { finish() }.buttonStyle(PrimaryButton()).keyboardShortcut(.defaultAction)
                 case .finished: Button("Done") { store.showGuide = false }.buttonStyle(PrimaryButton())
