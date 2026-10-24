@@ -4,9 +4,9 @@ import CryptoKit
 /// The public preview download is pinned to the exact bundled helper, not a
 /// mutable branch or "latest" asset. Update this pin after committing a new deb.
 public enum LinuxSetupDownload {
-    public static let filename = "telynd-setup_0.2.1_all.deb"
-    public static let revision = "be2cec8aaa5fe4593ff2d7554a294074849610fc"
-    private static let digest = "7b9c53045dad44efd1707411f343710a011071545950dc58e40c134a32e5bbf4"
+    public static let filename = "telynd-setup_0.2.2_all.deb"
+    public static let revision = "5eccc834f7092b2b87aad4194987de8aa207bd6d"
+    private static let digest = "6264d354f2cdb6f94bf38abcf59b530251118ed86199e74b6c2f1186463b179c"
     public static var url: URL {
         URL(string: "https://raw.githubusercontent.com/exponentialR/telynd/\(revision)/assets/\(filename)")!
     }
