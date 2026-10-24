@@ -1,7 +1,7 @@
 # Chrome Remote Desktop device import
 
-Decision: retain Google's device picker with explicit capture of its selected
-computer's tab address, plus manual-link fallback (#4).
+Decision: retain Google's device picker with guided detection of its selected
+computer's tab address and explicit confirmation, plus manual-link fallback (#4).
 Telynd does not retrieve a Google device inventory or infer a Google device from
 an SSH hostname. Duplicate display names cannot establish that mapping.
 
@@ -59,3 +59,16 @@ there is no fallback to another account. Several Google web accounts inside a
 single Chrome profile still share that profile's browsing state; this app does
 not choose a Google web account within it. Separate Chrome profiles provide
 the supported route for keeping those connection contexts apart.
+
+Guided setup now launches a new Chrome window in the chosen profile at a unique
+local-page marker bundled with the app. A fixed, parameterised Apple event checks only the front
+tab for that marker, binds its window/tab IDs and navigates that marked tab to
+the fixed Google picker URL. Subsequent reads address only that bound tab; other
+open sessions cannot supply the candidate. No tab inventory is requested. The
+marker never goes to Google. Detection ends on the first valid individual link,
+cancellation, closing setup, a draft change or the five-minute deadline. Closed
+or moved tabs fail safely with a retry instruction. The detected link needs an
+explicit confirmation before filling the draft and Save before persistence.
+Changing the account, manual link or draft invalidates pending results. This is
+address detection while an explicit setup is active, not unattended device
+discovery or proof of Google account ownership.

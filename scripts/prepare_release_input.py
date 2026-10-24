@@ -13,6 +13,7 @@ import zipfile
 RESOURCES = {
     **{name: f'scripts/{name}' for name in ['macos-recovery.sh', 'windows-recovery.ps1', 'WindowsServicePolicy.cs', 'authorise-remote.sh', 'remote-check.sh', 'setup-remote.sh', 'uninstall-remote.sh', 'setup-mac.command', 'launch-host.command', 'ssh-policy.sh']},
     **{name: f'assets/branding/{name}' for name in ['Telynd.icns', 'telynd-logo-v2.png', 'telynd-logo-dark.png']},
+    'chrome-setup.html': 'assets/chrome-setup.html',
 }
 PREFIX = 'Telynd.app/Contents/'
 FILES = {PREFIX + 'Info.plist', PREFIX + 'MacOS/Telynd', PREFIX + '_CodeSignature/CodeResources'} | {PREFIX + 'Resources/' + name for name in RESOURCES}
@@ -49,7 +50,7 @@ def validate_and_extract(archive, destination, tag, revision):
     if not FILES <= data.keys():
         raise ValueError('The app bundle is incomplete')
     info = plistlib.loads(data[PREFIX + 'Info.plist'])
-    required = {'CFBundleExecutable': 'Telynd', 'CFBundleIdentifier': 'com.samueladebayo.telynd', 'CFBundleName': 'Telynd', 'CFBundleDisplayName': 'Telynd', 'CFBundlePackageType': 'APPL', 'CFBundleIconFile': 'Telynd', 'CFBundleShortVersionString': tag[1:], 'LSMinimumSystemVersion': '13.0', 'NSHighResolutionCapable': True, 'NSAppleEventsUsageDescription': 'When you choose Use open computer, Telynd reads the front Chrome tab’s address to save your remote desktop connection.'}
+    required = {'CFBundleExecutable': 'Telynd', 'CFBundleIdentifier': 'com.samueladebayo.telynd', 'CFBundleName': 'Telynd', 'CFBundleDisplayName': 'Telynd', 'CFBundlePackageType': 'APPL', 'CFBundleIconFile': 'Telynd', 'CFBundleShortVersionString': tag[1:], 'LSMinimumSystemVersion': '13.0', 'NSHighResolutionCapable': True, 'NSAppleEventsUsageDescription': 'When you choose a computer, Telynd opens Chrome Remote Desktop and reads that setup tab’s address for up to five minutes. Use open computer reads the front tab once. You confirm before saving.'}
     if set(info) != set(required) | {'CFBundleVersion', 'NSHumanReadableCopyright'} or any(info.get(key) != value for key, value in required.items()):
         raise ValueError('Unexpected release bundle metadata')
     if not isinstance(info['CFBundleVersion'], str) or not info['CFBundleVersion'].isdecimal():

@@ -26,6 +26,7 @@ cp "$binary_dir/Telynd" "$app/Contents/MacOS/Telynd"
 cp scripts/macos-recovery.sh scripts/windows-recovery.ps1 scripts/WindowsServicePolicy.cs scripts/authorise-remote.sh scripts/ssh-policy.sh scripts/remote-check.sh scripts/setup-remote.sh scripts/uninstall-remote.sh scripts/launch-host.command scripts/setup-mac.command "$app/Contents/Resources/"
 cp assets/branding/Telynd.icns "$app/Contents/Resources/"
 cp assets/branding/telynd-logo-v2.png assets/branding/telynd-logo-dark.png "$app/Contents/Resources/"
+cp assets/chrome-setup.html "$app/Contents/Resources/"
 chmod 755 "$app/Contents/MacOS/Telynd" "$app/Contents/Resources/"*.command "$app/Contents/Resources/"*.sh
 cat > "$app/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -42,7 +43,7 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
 <key>NSHumanReadableCopyright</key><string>Copyright © 2026 Samuel Adebayo. MIT licence.</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>NSHighResolutionCapable</key><true/>
-<key>NSAppleEventsUsageDescription</key><string>When you choose Use open computer, Telynd reads the front Chrome tab’s address to save your remote desktop connection.</string>
+<key>NSAppleEventsUsageDescription</key><string>When you choose a computer, Telynd opens Chrome Remote Desktop and reads that setup tab’s address for up to five minutes. Use open computer reads the front tab once. You confirm before saving.</string>
 </dict></plist>
 PLIST
 # Fixture injection exists only in a debug build and cannot affect release settings.

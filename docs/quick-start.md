@@ -18,12 +18,16 @@ before normal download-and-open distribution.
    for this computer. **Refresh accounts** updates the local list; **Open Chrome
    to sign in…** opens Chrome. The list reflects Chrome metadata, not a fresh
    Google authentication check.
-3. Choose **Choose computer in Chrome**, which opens Google's list in that
-   computer's selected profile. Open the intended computer, return to Telynd
-   and choose **Use open computer**. macOS requests permission to interact with
-   Chrome; the action reads the front tab's address. Review the account and save
-   the computer. The captured address does not identify its Google account or
-   change the selected profile. No copying or SSH address is needed.
+3. Choose **Choose computer in Chrome** and allow macOS Automation access if
+   prompted. Telynd opens Google's list in a new window using the chosen profile.
+   Select the intended computer there. Telynd detects its link automatically in
+   that setup tab, including while Chrome is in the background. Return to Telynd,
+   choose **Use this computer**, review the browser account and **Save**. No
+   copying or second capture click is needed. Detection ends after five minutes,
+   cancellation, closing setup or changing the draft. Keep the setup tab in its
+   original window. The address does not identify the Google account active in
+   the tab; several Google web accounts within one Chrome profile still share
+   browsing state. Google handles any sign-in and PIN prompts.
 4. Choose **Connect** on the computer's row. Telynd opens its direct link using
    its saved Chrome profile, without a global account switch. Complete Google's
    connection prompts, including its PIN if requested. Telynd records the
@@ -62,7 +66,7 @@ address. New entries require that address before saving. Choose the remote
 operating system under **Optional recovery**, or when setting up recovery later.
 
 If Chrome access is denied, you can enable it under **System Settings → Privacy
-& Security → Automation → Telynd**, or expand **Enter link manually** and paste
+& Security → Automation → Telynd**, or expand **Other ways to add a link** and paste
 the individual computer's `https://remotedesktop.google.com/access/session/…`
 address. Reading the device-list page or an unrelated tab does not save a
 connection. Capturing an address never starts SSH or changes a remote host.

@@ -1,13 +1,15 @@
 import Foundation
 
-public enum ChromeCaptureError: LocalizedError {
-    case chromeClosed, permissionDenied, unavailable, notConnection
+public enum ChromeCaptureError: LocalizedError, Equatable {
+    case chromeClosed, permissionDenied, unavailable, notConnection, setupTabClosed
+    public var isGuidance: Bool { self == .notConnection || self == .chromeClosed || self == .setupTabClosed }
     public var errorDescription: String? {
         switch self {
-        case .chromeClosed: return "Open your computer in Chrome Remote Desktop first, then choose Use open computer."
+        case .chromeClosed: return "Chrome is closed. Choose computer in Chrome to open it, or enter the link manually."
         case .permissionDenied: return "Allow Telynd to interact with Google Chrome in System Settings → Privacy & Security → Automation, then try again. You can also enter the link manually."
         case .unavailable: return "Chrome’s open tab could not be read. Try again, or enter the link manually."
         case .notConnection: return "Open the individual computer in Chrome Remote Desktop first. Its device list and other pages cannot be saved as a connection."
+        case .setupTabClosed: return "The setup tab was closed or moved to another window. Choose computer in Chrome to start again, or enter its link manually."
         }
     }
 }

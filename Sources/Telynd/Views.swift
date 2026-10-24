@@ -298,53 +298,106 @@ struct ConnectionLinkFields: View {
     @EnvironmentObject var store: AppStore
     @Binding var desktop: Desktop
     @State private var pasteError: String?
+    @State private var feedbackIsError = false
     @State private var manualEntryExpanded = false
     @State private var captureRequests = ChromeCaptureRequests()
+    @State private var setup: ChromeSetupCapture?
+    private let setupTicks = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    private func stopDetection() { setup = nil; captureRequests.invalidate() }
+    private func startSetup() {
+        stopDetection(); pasteError = nil
+        let session = ChromeSetupCapture(desktop: desktop, markerPage: store.resources.appendingPathComponent("chrome-setup.html"))
+        store.openChromeSetup(desktop, session: session) { setup = session }
+    }
+    private func showCaptureError(_ error: Error) {
+        pasteError = error.localizedDescription
+        feedbackIsError = !((error as? ChromeCaptureError)?.isGuidance ?? false)
+    }
+    private func pollSetup() {
+        guard let session = setup else { return }
+        guard session.isCurrent(desktop) else {
+            stopDetection(); pasteError = "Detection stopped. Choose computer in Chrome to try again, or enter its link manually."; feedbackIsError = false; return
+        }
+        guard session.candidate == nil, !store.readingChromeConnection else { return }
+        let request = session.request
+        store.inspectChromeSetup(request) { result in
+            guard var active = setup, active.id == session.id, active.isCurrent(desktop) else { return }
+            switch result {
+            case .success(let snapshot):
+                let accepted = active.receive(snapshot, for: request, current: desktop)
+                setup = active
+                if accepted && active.candidate != nil { NSApp.requestUserAttention(.informationalRequest) }
+            case .failure(let error): stopDetection(); showCaptureError(error)
+            }
+        }
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Connection link").font(.subheadline.weight(.medium))
-            HStack {
-                Button("Choose computer in Chrome") { captureRequests.invalidate(); store.openChrome(desktop, picker: true) }.disabled(!store.profileReady(for: desktop))
-                Button("Use open computer") {
-                    pasteError = nil
-                    let request = captureRequests.begin(for: desktop)
-                    store.captureChromeConnection { result in
-                        guard captureRequests.consume(request, current: desktop) else { return }
-                        switch result {
-                        case .success(let link): desktop.chromeURL = link
-                        case .failure(let error): pasteError = error.localizedDescription
+            if setup?.candidate == nil { HStack {
+                Button("Choose computer in Chrome", action: startSetup)
+                    .disabled(!store.profileReady(for: desktop) || setup != nil || store.readingChromeConnection)
+                if setup != nil { Button("Cancel detection") { stopDetection() } }
+            } }
+            if let session = setup {
+                if session.candidate != nil {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Computer link detected", systemImage: "checkmark.circle").font(.callout.weight(.medium))
+                        Text("Check that you selected the intended computer in Chrome. Use this link with the browser account shown above, then Save.").font(.caption).foregroundStyle(.secondary)
+                        HStack {
+                            Button("Use this computer") {
+                                guard let link = setup?.confirmedLink(current: desktop) else { pollSetup(); return }
+                                stopDetection(); desktop.chromeURL = link; pasteError = nil
+                            }
+                            Button("Discard") { stopDetection() }
                         }
-                    }
-                }.disabled(store.readingChromeConnection || !store.profileReady(for: desktop))
-            }
-            if store.readingChromeConnection { ProgressView("Reading Chrome’s open computer…").controlSize(.small) }
-            if let pasteError { Text(pasteError).font(.caption).foregroundStyle(.red) }
+                    }.padding(12).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
+                } else {
+                    ProgressView("Choose your computer in the Chrome window Telynd opened…").controlSize(.small)
+                    Text("Telynd detects the link automatically in that tab, even while Chrome is in the background. Return here to confirm. Detection stops after five minutes or when you cancel or close setup.").font(.caption).foregroundStyle(.secondary)
+                }
+            } else if let pasteError { Text(pasteError).font(.caption).foregroundStyle(feedbackIsError ? Color.red : Color.secondary) }
             else if desktop.hasDirectConnection && store.profileReady(for: desktop) {
                 Text("Connect opens this computer using \(desktop.chromeProfile?.email ?? "its saved browser account").").font(.caption).foregroundStyle(.secondary)
             } else if desktop.hasDirectConnection {
                 Text("Choose this computer’s browser account to enable Connect.").font(.caption).foregroundStyle(.secondary)
             } else {
-                Text("Open your computer in Chrome, then choose Use open computer. macOS will ask permission for Telynd to read Chrome’s current tab address.").font(.callout).foregroundStyle(.secondary)
+                Text("Choose computer in Chrome, then select it in Google’s list. Telynd detects its link for you to confirm. macOS may ask permission to interact with Chrome.").font(.callout).foregroundStyle(.secondary)
                 Link("Chrome Remote Desktop setup", destination: URL(string: "https://support.google.com/chrome/answer/1649523")!).font(.caption)
             }
-            DisclosureGroup("Enter link manually", isExpanded: $manualEntryExpanded) {
+            DisclosureGroup("Other ways to add a link", isExpanded: $manualEntryExpanded) {
                 VStack(alignment: .leading, spacing: 10) {
+                    Button("Use open computer") {
+                        stopDetection(); pasteError = nil
+                        let request = captureRequests.begin(for: desktop)
+                        store.captureChromeConnection { result in
+                            guard captureRequests.consume(request, current: desktop) else { return }
+                            switch result {
+                            case .success(let link): desktop.chromeURL = link
+                            case .failure(let error): showCaptureError(error)
+                            }
+                        }
+                    }.disabled(store.readingChromeConnection || !store.profileReady(for: desktop))
+                    Text("Use open computer reads Chrome’s front tab once. You can also paste an individual computer link below.").font(.caption).foregroundStyle(.secondary)
                     TextField("https://remotedesktop.google.com/access/session/…", text: Binding(
                         get: { desktop.chromeURL == InputValidation.devicePicker || desktop.chromeURL == InputValidation.devicePicker + "/" ? "" : desktop.chromeURL },
-                        set: { captureRequests.invalidate(); desktop.chromeURL = $0.isEmpty ? InputValidation.devicePicker : $0; pasteError = nil }
+                        set: { stopDetection(); desktop.chromeURL = $0.isEmpty ? InputValidation.devicePicker : $0; pasteError = nil }
                     )).accessibilityLabel("Individual computer connection link")
                     Button("Paste link") {
-                        captureRequests.invalidate()
+                        stopDetection()
                         guard let value = NSPasteboard.general.string(forType: .string)?.trimmingCharacters(in: .whitespacesAndNewlines), InputValidation.directChromeURL(value) else {
-                            pasteError = "Copy the address after opening your computer in Chrome Remote Desktop."; return
+                            pasteError = "Copy the address after opening your computer in Chrome Remote Desktop."; feedbackIsError = false; return
                         }
                         desktop.chromeURL = value; pasteError = nil
                     }
                     if !InputValidation.chromeURL(desktop.chromeURL) { Text("This is not an individual Google Remote Desktop link.").font(.caption).foregroundStyle(.red) }
                 }.padding(.top, 10)
             }.font(.callout)
-        }.onChange(of: desktop) { _ in captureRequests.invalidate() }
-            .onDisappear { captureRequests.invalidate() }
+        }.onChange(of: desktop) { _ in stopDetection(); pasteError = nil }
+            .onReceive(setupTicks) { _ in pollSetup() }
+            .onDisappear { stopDetection() }
     }
 }
 struct OnboardingGuide: View {

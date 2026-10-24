@@ -168,9 +168,34 @@ import CryptoKit
             }
         }
     }
+    func inspectChromeSetup(_ request: ChromeSetupRead, completion: @escaping (Result<ChromeSetupSnapshot?, Error>) -> Void) {
+        guard !readingChromeConnection else { return }
+        guard !fixtureMode else { completion(.failure(ChromeCaptureError.unavailable)); return }
+        readingChromeConnection = true
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = Result { try ChromeTabReader.inspectSetup(request) }
+            DispatchQueue.main.async {
+                self.readingChromeConnection = false
+                completion(result)
+            }
+        }
+    }
+    func openChromeSetup(_ desktop: Desktop, session: ChromeSetupCapture, completed: () -> Void) {
+        refreshProfiles()
+        do {
+            let profile = try ChromeProfiles.selected(in: profiles, reference: desktop.chromeProfile)
+            guard !fixtureMode, let chrome = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.google.Chrome") else { throw ConfigurationError.chromeMissing }
+            let process = Process()
+            process.executableURL = chrome.appendingPathComponent("Contents/MacOS/Google Chrome")
+            process.arguments = ["--profile-directory=\(profile.directory)", "--new-window", session.bootstrapURL]
+            process.standardOutput = FileHandle.nullDevice; process.standardError = FileHandle.nullDevice
+            try process.run()
+            completed()
+        } catch { self.error = error.localizedDescription }
+    }
     func connect(_ desktop: Desktop) {
         guard desktops.contains(where: { $0.id == desktop.id }) else { error = "Restore this computer before connecting."; return }
-        guard desktop.hasDirectConnection else { error = "Save this computer’s individual connection link before connecting. Choose Edit, open the computer in Chrome and choose Use open computer."; return }
+        guard desktop.hasDirectConnection else { error = "Save this computer’s individual connection link before connecting. Choose Edit, then Choose computer in Chrome and select the computer in Google’s list."; return }
         openChrome(desktop) { [weak self] in
             guard let self else { return }
             var item = desktop; item.lastLaunch = Date()

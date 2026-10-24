@@ -1,5 +1,39 @@
 # Onboarding validation record
 
+## Guided Chrome computer selection, 24 October 2026
+
+**Choose computer in Chrome** now opens a new window in the selected profile,
+binds its bundled local setup page through a unique fragment, then navigates
+that single tab to Google's device picker. A fixed, parameterised Apple event
+reads only that bound tab's address during the explicit setup attempt. It does
+not enumerate tabs, scrape content or read authentication material. A valid
+Google HTTPS session link becomes a candidate; **Use this computer** fills the
+draft and **Save** persists it. The five-minute limit stops waiting for a new
+selection; a detected candidate remains available for review. Draft changes,
+cancellation and closing the editor invalidate pending results. Closed or moved
+tabs require a retry. Routine picker/closed-tab guidance uses neutral styling;
+permission and reader failures retain error styling. Manual entry and explicit
+one-shot front-tab capture remain available under **Other ways to add a link**.
+
+Local verification: 63 Swift tests passed, including opening-marker ownership,
+bound-tab identity, rejected picker/sign-in/untrusted URLs, draft/account edits,
+expiry, candidate confirmation, superseded attempts and compilation against the
+installed Chrome scripting dictionary. The full Python suite ran 46 tests with
+one platform skip and no failures. After adding the bundled HTML resource, all
+nine release-security tests passed again, including rejection of an altered
+setup page and altered Automation explanation. The release allowlist verifies
+that page against its committed source before signing.
+
+A live native-app check opened Google's real device picker in the intended
+non-default Chrome profile. Selecting its computer produced the confirmation
+card automatically without a second capture click. Save remained disabled until
+confirmation. This establishes link detection, not a successful authenticated
+remote session or general multi-account acceptance. No PIN was entered and no
+host recovery action ran. Private settings were backed up and verified unchanged
+by SHA-256 read-back. The existing unsaved draft was reopened after the in-place
+app update. Only the canonical development app was updated; no extra Telynd app
+was installed. Private account details and connection URLs are omitted here.
+
 ## Recoverable removal and guided Linux access, 24 October 2026
 
 Source `323e57f6f43a4a1fbd52d0a334aefcde1e9a2fd4` adds **Remove from Telynd**

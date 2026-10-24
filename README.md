@@ -75,11 +75,19 @@ their desktop identities and are not forced through first-run setup. Corrupt or
 future-version settings are preserved and saving is locked until corrected.
 
 Telynd reads Chrome's local profile names, email labels and directory IDs.
-The **Use open computer** action additionally requests macOS Automation access
-to Chrome and reads its front tab's address once, only when clicked. macOS's
-permission allows app automation; the fixed reader requests only that URL.
-It does not enumerate tabs or read cookies, browser passwords, OAuth tokens or
-remote screen contents. Manual entry remains available if permission is denied.
+**Choose computer in Chrome** requests macOS Automation access and opens a
+new window in the chosen profile. A temporary local-page marker binds that exact
+tab before Telynd navigates it to Google's device picker. It checks that tab's
+address once per second, including while Chrome is in the background, until a
+valid computer link is detected or setup ends. You confirm the link before it
+fills the draft, then Save. Detection stops on cancellation, closing setup,
+changing the draft or after five minutes. Closed or moved tabs require a retry.
+The optional **Use open computer** fallback reads the front tab's address once.
+macOS's permission permits broader app automation; this implementation reads
+addresses and tab/window identifiers and navigates only its marked setup tab.
+It does not enumerate tabs or read page content, cookies, browser passwords,
+OAuth tokens or remote screen contents. Manual entry remains available if
+permission is denied. Sign-in and PIN prompts stay in Chrome.
 Each computer remembers its Chrome profile directory and email label. There is
 no global account switch. New computers use the sole available signed-in
 profile automatically; multiple profiles require a one-time selection. Missing

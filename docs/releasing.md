@@ -88,7 +88,7 @@ package manifest. Normal Mac CI exercises ZIP validation and signature
 preservation without signing credentials. The public ZIP is recreated after
 stapling.
 
-The app's optional **Use open computer** action needs Apple Events automation
+The app's guided computer selection and **Use open computer** fallback need Apple Events automation
 consent for Chrome. The build includes its fixed usage explanation; artifact
 validation rejects a missing or altered explanation. The signer applies only
 `scripts/macos-app.entitlements` from the trusted workflow checkout. The
