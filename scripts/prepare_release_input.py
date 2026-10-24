@@ -14,6 +14,7 @@ RESOURCES = {
     **{name: f'scripts/{name}' for name in ['macos-recovery.sh', 'windows-recovery.ps1', 'WindowsServicePolicy.cs', 'authorise-remote.sh', 'remote-check.sh', 'setup-remote.sh', 'uninstall-remote.sh', 'setup-mac.command', 'launch-host.command', 'ssh-policy.sh']},
     **{name: f'assets/branding/{name}' for name in ['Telynd.icns', 'telynd-logo-v2.png', 'telynd-logo-dark.png']},
     'chrome-setup.html': 'assets/chrome-setup.html',
+    'telynd-setup_0.2.0_all.deb': 'assets/telynd-setup_0.2.0_all.deb',
 }
 PREFIX = 'Telynd.app/Contents/'
 FILES = {PREFIX + 'Info.plist', PREFIX + 'MacOS/Telynd', PREFIX + '_CodeSignature/CodeResources'} | {PREFIX + 'Resources/' + name for name in RESOURCES}

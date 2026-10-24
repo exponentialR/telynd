@@ -322,6 +322,29 @@ import CryptoKit
             NSWorkspace.shared.activateFileViewerSelecting([destination])
         } catch { self.error = "Kit export did not complete: \(error.localizedDescription). Review the destination before retrying." }
     }
+    func exportLinuxSetupHelper() {
+        guard !fixtureMode else { error = "The preview cannot export installers."; return }
+        let panel = NSSavePanel(); panel.title = "Save the setup helper for the Linux PC"
+        panel.nameFieldStringValue = "telynd-setup_0.2.0_all.deb"
+        guard panel.runModal() == .OK, let destination = panel.url else { return }
+        do {
+            let data = try Data(contentsOf: resources.appendingPathComponent("telynd-setup_0.2.0_all.deb"))
+            try data.write(to: destination, options: .atomic)
+            NSWorkspace.shared.activateFileViewerSelecting([destination])
+        } catch { self.error = "The helper could not be saved. Choose a writable folder and try again." }
+    }
+    func checkPairing(_ card: PairingCard, desktop: Desktop, control: PairingProbeControl, completion: @escaping (Result<String, Error>) -> Void) {
+        guard !fixtureMode else { completion(.failure(PairingError.unreachable)); return }
+        guard desktops.contains(desktop) else { completion(.failure(PairingError.cancelled)); return }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = Result { try PairingProbe.find(card, control: control) }
+            DispatchQueue.main.async {
+                guard !control.cancelled, self.desktops.contains(desktop) else { completion(.failure(PairingError.cancelled)); return }
+                completion(result)
+            }
+        }
+    }
+    func resetRecoveryCheck(_ id: UUID) { hostChecks.invalidate(id) }
     func importHostReport(_ desktop: Desktop) {
         let panel = NSOpenPanel(); panel.canChooseDirectories = false; panel.allowsMultipleSelection = false
         panel.title = "Import a report exported by this computer’s recovery kit"

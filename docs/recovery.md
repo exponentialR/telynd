@@ -14,14 +14,14 @@ Open a computer's **… → Recovery settings…** and select **Linux**. Telynd
 checks previously saved access automatically when this screen opens. New setup
 has three steps:
 
-1. Enter the **Linux username** and **Computer address**, or use **Paste SSH address**
-   with `user@computer` or a simple `ssh user@computer` command. No SSH options,
-   custom ports or shell commands are accepted by that paste action. The address
-   must be reachable from this Mac, through the local network or an existing VPN.
-   The username is just the login name, such as `alex`, without `@computer`.
-   The computer address is one reachable IP address or network name, entered
-   separately. Labels stay visible while typing, and the form explains a full
-   SSH address entered accidentally into the username field.
+1. Follow [guided pairing](pairing.md): export the desktop helper, open it on
+   the Ubuntu/Debian PC, approve SSH preparation if needed and bring its setup
+   card back to this Mac. Confirm the PC, choose **Check this computer**, then
+   **Use this computer**. Telynd selects a listed address whose public host key
+   matches the card; it does not authenticate or accept trust. Existing saved
+   connections skip pairing. Advanced users can expand **Advanced: enter
+   connection details** to enter a username/address or paste one simple
+   `ssh user@computer` command. SSH options and custom ports are not accepted.
 2. Choose **Set up SSH access…**. Telynd creates a key pair if both files are
    absent, or reuses the selected pair. New connections normally use
    `~/.ssh/telynd_ed25519`; existing SSH settings retain their previous key.
@@ -39,10 +39,12 @@ check. Key selection, an interactive SSH Terminal, detailed status, manual
 recovery, disabling and uninstalling are under **Advanced settings & diagnostics**.
 Editing the target or key makes the old verification inapplicable until checked.
 
-SSH must already be enabled and reachable on the remote computer. Telynd cannot
-bootstrap it through a connection that does not exist, infer its Linux login or
-address from a Google connection URL, or grant initial access without an existing
-login method. The in-app help explains Ubuntu's Secure Shell settings and links
+For the advanced manual route, SSH must already be enabled and reachable.
+The desktop helper can enable it locally after administrator approval, but
+Telynd cannot bootstrap a computer through a connection that does not exist.
+It cannot infer SSH access from a Google URL or grant access without an existing
+login method. The normal pairing route supplies these details without commands;
+the following command-based fallback is for advanced users. The in-app help explains Ubuntu's Secure Shell settings and links
 [Ubuntu's OpenSSH guide](https://ubuntu.com/server/docs/how-to/security/openssh-server/).
 It also provides fixed read-only commands to show the remote username,
 addresses and public host-key fingerprints. **Copy Linux details command**

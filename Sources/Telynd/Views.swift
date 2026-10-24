@@ -327,11 +327,11 @@ struct RecoveryIntroduction: View {
             } else if platform.usesSSHRecovery {
                 VStack(alignment: .leading, spacing: 14) {
                     Label("Linux recovery uses SSH", systemImage: "terminal").font(.headline)
-                    Text("SSH gives this Mac another way to reach your Linux PC and set up its automatic recovery timer.").font(.callout).foregroundStyle(.secondary)
-                    Label("Enter the Linux login name and computer address.", systemImage: "1.circle")
-                    Label("Let Telynd guide you through creating or reusing a key.", systemImage: "2.circle")
-                    Label("Check access, then approve the recovery timer.", systemImage: "3.circle")
-                    Text("New to SSH? The next screen shows where to find those details and how to enable SSH on Linux. Passwords and administrator approval stay in Terminal.").font(.caption).foregroundStyle(.secondary)
+                    Text("The setup helper supplies the details and Telynd finds a matching connection. SSH provides the recovery route behind the scenes.").font(.callout).foregroundStyle(.secondary)
+                    Label("Open the setup helper on your Linux PC.", systemImage: "1.circle")
+                    Label("Paste its setup card; Telynd checks the connection.", systemImage: "2.circle")
+                    Label("Approve access, then enable recovery.", systemImage: "3.circle")
+                    Text("The desktop helper supports Ubuntu/Debian. Both computers need a shared network or existing VPN. One-time passwords and administrator approvals stay in system prompts; manual setup remains available under Advanced.").font(.caption).foregroundStyle(.secondary)
                 }.font(.callout).padding(16).frame(maxWidth: .infinity, alignment: .leading)
                     .background(.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
             } else {
@@ -541,6 +541,9 @@ struct RecoverySheet: View {
     @State private var identity = ""
     @State private var now = Date()
     @State private var waitingAction: String?
+    @State private var manualConnection = false
+    @State private var pairedName: String?
+    @State private var pairingKeys: [PairingKey] = []
     var observed: HostObservation { store.observations[desktop.id] ?? HostObservation() }
     var current: Desktop { store.desktops.first(where: { $0.id == desktop.id }) ?? desktop }
     var key: String { (identity as NSString).expandingTildeInPath }
@@ -609,14 +612,12 @@ struct RecoverySheet: View {
             }
             .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in pollCompletion() }
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in pollCompletion() }
-            .onChange(of: address) { _ in addressError = nil }
+            .onChange(of: address) { _ in addressError = nil; if manualConnection { pairedName = nil; pairingKeys = [] } }
     }
-    var linuxSetup: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            Text("Telynd uses SSH as a second way to reach Linux when the screen connection fails. Setup creates or reuses a key; passwords are entered directly in Terminal.").font(.callout).foregroundStyle(.secondary)
+    var manualAddressFields: some View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text("1. Find the Linux computer").font(.headline)
+                    Text("Connection details").font(.headline)
                     Spacer()
                     Button("Paste SSH address") {
                         if let value = SSHAddress.pasted(NSPasteboard.general.string(forType: .string)) { address = value; addressError = nil }
@@ -657,6 +658,36 @@ struct RecoverySheet: View {
                     }.font(.callout).foregroundStyle(.secondary).padding(.top, 10)
                 }.font(.callout)
             }
+    }
+    var linuxSetup: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Telynd uses SSH as a second way to reach Linux when the screen connection fails. Setup creates or reuses a key; passwords are entered directly in Terminal.").font(.callout).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 14) {
+                Text("1. Pair this computer").font(.headline)
+                if address.target == nil && !manualConnection {
+                    PairingSetupView(desktop: current) { card, selected in
+                        store.resetRecoveryCheck(current.id)
+                        address = SSHAddress(target: card.username + "@" + selected)
+                        pairedName = card.hostname; pairingKeys = card.hostKeys
+                    }
+                } else if address.target != nil && !manualConnection {
+                    Label(pairedName ?? current.name, systemImage: "desktopcomputer").font(.callout.weight(.medium))
+                    Text(pairedName == nil ? "Saved connection details are ready to check. Continue with access approval below." : "A reachable route matched the setup card. Continue with access approval below.").font(.callout).foregroundStyle(.secondary)
+                    if !pairingKeys.isEmpty {
+                        DisclosureGroup("Identity for the first SSH connection") {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Compare the matching key type if Terminal asks you to trust this PC.")
+                                ForEach(pairingKeys, id: \.type) { key in Text(key.type + " · " + key.fingerprint).textSelection(.enabled) }
+                            }.font(.caption).foregroundStyle(.secondary).padding(.top, 8)
+                        }
+                    }
+                    Button("Pair a different computer") { address = SSHAddress(); pairedName = nil; pairingKeys = [] }
+                }
+                DisclosureGroup("Advanced: enter connection details", isExpanded: $manualConnection) {
+                    manualAddressFields.padding(.top, 12)
+                }.font(.callout)
+            }
+            if address.target != nil {
             Divider()
             VStack(alignment: .leading, spacing: 10) {
                 Text("2. Allow this Mac to connect").font(.headline)
@@ -679,6 +710,7 @@ struct RecoverySheet: View {
                 if observed.busy { ProgressView("Checking current access…").controlSize(.small) }
                 if waitingAction != nil { Text("Continue in Terminal. Telynd checks the result automatically when setup finishes.").font(.callout).foregroundStyle(.secondary) }
             }
+            if accessReady {
             Divider()
             VStack(alignment: .leading, spacing: 10) {
                 Text("3. Enable automatic recovery").font(.headline)
@@ -692,6 +724,8 @@ struct RecoverySheet: View {
                     Button("Enable automatic recovery…") { launch("install") }.buttonStyle(ConnectButton()).disabled(!canInstall)
                     if accessReady && !canInstall { Text(observed.report?.configurationLabel(at: now) ?? "Check access for current installation requirements.").font(.caption).foregroundStyle(.secondary) }
                 }
+            }
+            }
             }
             DisclosureGroup("Advanced settings & diagnostics") {
                 VStack(alignment: .leading, spacing: 14) {

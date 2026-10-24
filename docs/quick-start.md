@@ -30,8 +30,9 @@ before normal download-and-open distribution.
    browsing state. Google handles any sign-in and PIN prompts.
 4. The **Recovery (optional)** step is visible during Add computer. Choose the
    remote operating system. For Linux, **Save & set up SSH…** saves the computer
-   and opens the guided login/address, key and recovery-timer setup. Its help
-   explains how to enable SSH and find the required details. Mac and Windows
+   and opens guided pairing with a small setup helper for the Linux PC.
+   The helper supplies its login, candidate addresses and public identity;
+   Telynd finds a matching route without asking you to choose an IP address. Mac and Windows
    open their host-local recovery-kit setup. **Save connection only** finishes
    adding the computer without configuring recovery; you can add it later.
 5. Choose **Connect** on the computer's row. Telynd opens its direct link using
@@ -56,12 +57,18 @@ even after reopening Telynd. To stop host recovery, disable or uninstall it in
 Recovery settings before removing the saved entry. A Terminal setup already in
 progress continues independently.
 
-Linux recovery now offers a guided **Set up SSH access…** action. You provide or
-paste the Linux login/address once; Telynd handles key creation if needed and
-authorisation, then checks access after Terminal finishes. **Advanced settings &
-diagnostics** holds key paths and maintenance actions. The remote PC still needs
-SSH enabled and reachable, and you approve first trust and passwords yourself.
-Mac and Windows host kits do not require inbound SSH.
+For Linux recovery, follow the [guided pairing steps](pairing.md). The desktop
+helper currently supports Ubuntu/Debian with a graphical desktop and IPv4. It
+can enable SSH after local administrator approval. You bring its setup card
+back to this Mac, confirm the PC and choose **Check this computer**. Telynd tests
+only the card's listed addresses and compares public host keys; it does not
+log in or accept trust. **Use this computer** fills the connection details.
+Then **Set up SSH access…** handles key creation and authorisation through
+Terminal. You approve first trust and any login/passphrase prompts; automatic
+recovery has a separate administrator approval. **Advanced: enter connection
+details** remains available for existing SSH users. Both devices still need a
+shared reachable network or an existing VPN. Mac and Windows host kits do not
+require inbound SSH.
 
 Existing computers inherit their previous global Chrome choice once when this
 build first opens. Later computers and unfinished drafts do not inherit that

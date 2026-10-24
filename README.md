@@ -21,6 +21,7 @@ the real download smoke test remain prerequisites. Source and original branding
 are released under the [MIT licence](LICENSE).
 
 - [Connect your first computer](docs/quick-start.md)
+- [Guided Linux pairing without choosing an IP address](docs/pairing.md)
 - [Optional SSH and Linux recovery, troubleshooting and uninstall](docs/recovery.md)
 - [Mac and Windows recovery kits and their limits](docs/platform-recovery.md)
 - [Host recovery architecture](docs/host-recovery-design.md)
@@ -53,6 +54,8 @@ Linux SSH access and recovery. Mac/Windows kits run locally on their hosts. Tail
 | --- | --- |
 | `Sources/Telynd/` | SwiftUI guide, searchable computer rows, per-computer accounts and Terminal hand-off |
 | `Sources/TelyndCore/` | Models, private persistence, profile metadata, readiness and bounded process execution |
+| `linux-helper/` | Ubuntu/Debian desktop pairing helper and fixed administrator-approved SSH preparation |
+| `scripts/build_linux_helper.py` | Builds the bundled Debian package from reviewable sources |
 | `scripts/remote-check.sh` | Read-only structured readiness; explicit recovery mode |
 | `scripts/setup-mac.command` | Separate SSH authorisation, key creation and installer actions, with private receipts |
 | `scripts/authorise-remote.sh` | Fixed Linux public-key installer; stdin data, private files and preserved restrictions |
@@ -110,9 +113,16 @@ The recovery step explains the selected operating system's route. For Linux,
 connection only** skips recovery. Editing retains saved SSH details, and saving
 without opening recovery never disables an existing host timer.
 
-Linux recovery setup guides the user through the address, one combined key
-creation/authorisation action, and separate recovery installation. SSH must
-already be enabled and reachable; first trust and passwords stay in Terminal.
+Linux recovery starts with guided pairing. Export the bundled Ubuntu/Debian
+setup helper and open it on the remote PC through an existing Google session
+or physical access. It collects public connection details and can enable SSH
+after local administrator approval. Bring its short-lived setup card back to
+Telynd; the Mac checks only those candidate IPv4 addresses for a matching public
+host key. It does not log in, trust keys automatically or install a VPN. The
+normal route does not ask users to choose an IP or key file. Advanced manual
+connection entry remains available. First SSH trust and passwords still stay
+in Terminal, followed by separate recovery installation. See [pairing](docs/pairing.md)
+for supported hosts, approvals and network prerequisites.
 Saved Linux recovery settings and completed Terminal actions trigger bounded,
 read-only readiness checks. New or edited details also have an explicit check.
 One-time changes

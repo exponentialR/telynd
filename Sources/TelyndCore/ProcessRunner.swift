@@ -7,7 +7,7 @@ import Glibc
 
 public enum ProcessRunner {
     /// Bound both execution time and output. Never accept partial protocol output on failure.
-    public static func run(_ command: String, arguments: [String], input: URL? = nil, timeout: TimeInterval = 40, outputLimit: Int = 65_536) -> (code: Int32, output: String) {
+    public static func run(_ command: String, arguments: [String], input: URL? = nil, timeout: TimeInterval = 40, outputLimit: Int = 65_536, mergeError: Bool = true) -> (code: Int32, output: String) {
         let process = Process(), pipe = Pipe()
         var inputFile: FileHandle?
         defer { try? inputFile?.close(); try? pipe.fileHandleForReading.close() }
@@ -15,7 +15,7 @@ public enum ProcessRunner {
             if let input { inputFile = try FileHandle(forReadingFrom: input) }
             process.executableURL = URL(fileURLWithPath: command); process.arguments = arguments
             process.standardInput = inputFile ?? FileHandle.nullDevice
-            process.standardOutput = pipe; process.standardError = pipe
+            process.standardOutput = pipe; process.standardError = mergeError ? pipe : FileHandle.nullDevice
             let fd = pipe.fileHandleForReading.fileDescriptor
             guard fcntl(fd, F_SETFL, O_NONBLOCK) != -1 else { return (-1, "Verification could not be started.") }
             try process.run()
