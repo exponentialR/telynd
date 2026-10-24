@@ -1,5 +1,68 @@
 # Onboarding validation record
 
+## Recoverable removal and guided Linux access, 24 October 2026
+
+Source `323e57f6f43a4a1fbd52d0a334aefcde1e9a2fd4` adds **Remove from Telynd**
+to each computer's options menu. The confirmation explains that Google
+registration, SSH keys, host recovery and already-running Terminal setup remain
+independent. Removed entries are archived privately for Undo and **Help →
+Recently removed computers → Restore**, including after relaunch.
+
+The private archive is committed before cleaning the active-list file. Startup
+filters archived IDs, so an interrupted cleanup cannot resurrect an entry.
+Restore writes the computer before clearing its archive entry; an unsuccessful
+final commit therefore leaves it hidden and recoverable. Removal clears matching
+setup-guide references and local observations. Stale editors and host actions
+cannot resurrect or operate through a removed record. Preferences advance to
+schema 3 so older builds reject settings they cannot interpret. Settings writes
+also refuse an unexpected directory or symlink destination instead of replacing
+it as a regular settings file.
+
+Linux recovery now guides address entry, access setup and recovery installation.
+**Paste address** accepts only a validated target or simple SSH login command.
+New setups normally use a dedicated Telynd key; existing saved targets keep their
+previous key choice. **Set up SSH access** creates a pair only when both files
+are absent, then uses the existing verified authorisation protocol. Partial
+pairs are refused without overwrite. Passphrase choice, host-fingerprint trust,
+login and administrator passwords remain standard interactive approvals.
+Recovery installation is separate and remains gated by fresh supported-host
+readiness. Existing saved Linux settings are checked when recovery opens, and
+an open setup screen checks current readiness after its Terminal action ends.
+A completed receipt is no longer retimestamped when its finished Terminal closes.
+
+SSH must already be enabled and reachable, with an initial authentication route.
+The app does not enable server password login, open ports, infer Linux identity
+from Google links or bypass fingerprint checks. In-app Ubuntu guidance and fixed
+read-only discovery commands explain the prerequisite. Mac/Windows recovery
+continues to use host-local kits without inbound SSH.
+
+Verification: 57 Swift tests passed. The full Python suite ran 46 tests with one
+platform skip and no failures. Coverage includes removal/restore across relaunch,
+interrupted disk commits, stale-action refusal, preservation of key and receipt
+files, address/command parsing, missing-key creation without a product-selected
+passphrase, existing-key reuse, incomplete-pair refusal, strict SSH transport,
+protected keys and completion receipt timestamps. SSH transports and interactive
+user input were controlled substitutes; no real key or host was enrolled.
+
+Native isolated UI checks observed cancellation, removal, the Undo action,
+persistence after quit/reopen, restoration through Recently removed computers,
+friendly SSH fields enabling setup without manual key-path input, and the
+prerequisite help. The final layout keeps advanced details collapsed and later
+recovery actions gated behind access verification. The screenshot contains
+synthetic names and addresses only. The temporary UI app was moved to Trash
+after testing, leaving one normal development app.
+
+The existing development app was updated at the repository's build/Telynd.app
+after a private settings backup. Its desktop file remained byte-for-byte
+unchanged, previous preference values were preserved with schema 3 and an empty
+archive, and settings permissions remained owner-only. Opening its existing
+Linux recovery settings automatically reported SSH access verified and recovery
+enabled through a read-only check. No key authorisation, installation or service
+change was requested on that host. A fresh real-host first-time setup pilot
+remains outstanding under #13; this does not close its acceptance gap.
+
+![Guided SSH setup using a synthetic computer and address](images/guided-ssh.png)
+
 ## Computer rows and remembered accounts, 24 October 2026
 
 Source `9a61dbd916935c47e7643365cfea7b945682a8cb` replaces dashboard cards
