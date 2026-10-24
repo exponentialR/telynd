@@ -1,6 +1,6 @@
 #!/bin/bash
 # Real launchd against an isolated synthetic host. Disposable CI runner only.
-set -euo pipefail
+set -euxo pipefail
 [ "${TELYND_DISPOSABLE_MACOS:-}" = 1 ] || { echo 'Disposable Mac opt-in required.' >&2; exit 1; }
 [ "$(uname -s)" = Darwin ] && [ "$(id -u)" -ne 0 ] || exit 1
 domain="gui/$(id -u)"
@@ -35,7 +35,7 @@ binary=root/'Google.app/Contents/MacOS/remoting_me2me_host_service'
 with (root/'Google.app/Contents/Info.plist').open('wb') as f:
  plistlib.dump({'CFBundleIdentifier':'com.telynd.fixture.host','CFBundleExecutable':binary.name,'CFBundlePackageType':'APPL'},f)
 with (root/'google.plist').open('wb') as f:
- plistlib.dump({'Label':os.environ['TELYND_NATIVE_GOOGLE_LABEL'],'ProgramArguments':[str(binary),'--run-from-launchd'],'Disabled':False},f)
+ plistlib.dump({'Label':os.environ['TELYND_NATIVE_GOOGLE_LABEL'],'ProgramArguments':[str(binary),'--run-from-launchd'],'Disabled':False,'StandardOutPath':'/dev/null','StandardErrorPath':'/dev/null'},f)
 (root/'enabled').touch()
 s=(Path(os.environ['TELYND_NATIVE_REPO'])/'scripts/macos-recovery.sh').read_text()
 s=s.replace('$HOME',str(root/'home'))

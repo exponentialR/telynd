@@ -61,6 +61,7 @@ try {
     Assert ($before.installation -eq 'missing') 'Expected missing installation'
     Assert (-not (Test-Path (Join-Path $root 'owned'))) 'Check mutated filesystem'
     $original=[Telynd.ServicePolicy]::Read($service) | ConvertTo-Json -Depth 8 -Compress
+    Assert (([Telynd.ServicePolicy]::Security($service)).Contains('D:')) 'Native service security descriptor was not returned'
     $installed=& $script -Action install -DesktopID $id | ConvertFrom-Json
     Assert ($installed.installation -eq 'verified') 'Install read-back failed'
     $null=& $script -Action install -DesktopID $id

@@ -55,6 +55,7 @@ jobs:
       - name: Exercise isolated macOS recovery lifecycle
         run: python3 -m unittest discover -s tests -p test_macos_recovery.py -v
       - name: Exercise native launchd with a synthetic host
+        timeout-minutes: 2
         env:
           TELYND_DISPOSABLE_MACOS: '1'
         run: bash tests/macos-launchd.sh

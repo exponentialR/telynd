@@ -153,6 +153,8 @@ if [ "$mode" = install ]; then
 <key>StartInterval</key><integer>120</integer>
 <key>LimitLoadToSessionType</key><string>Aqua</string>
 <key>ProcessType</key><string>Background</string>
+<key>StandardOutPath</key><string>/dev/null</string>
+<key>StandardErrorPath</key><string>/dev/null</string>
 </dict></plist>
 PLIST
     chmod 600 "$agent"
