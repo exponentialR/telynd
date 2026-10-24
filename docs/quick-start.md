@@ -4,9 +4,27 @@ Telynd opens your existing Google Chrome Remote Desktop connections and can
 optionally recover a stopped Linux host service. Google still provides the
 remote screen and handles sign-in and the connection PIN.
 
-There is currently **no signed public download**. Developer builds require the
-Mac Swift toolchain; [release preparation](releasing.md) records what remains
-before normal download-and-open distribution.
+## Install the preview
+
+[Download the Apple silicon preview ZIP](https://github.com/exponentialR/telynd/releases/download/v0.2.0-preview.1/Telynd-v0.2.0-preview.1-macos-arm64.zip),
+extract it and read `READ_ME_FIRST.txt`. Quit any existing Telynd copy and drag
+`Telynd.app` into Applications. Replacing the app preserves saved settings.
+You do not need Xcode, Swift or Python on the Mac.
+
+This preview is **not notarised by Apple**. Try opening Telynd normally. If
+macOS blocks it and you trust this official download, go to **System Settings
+→ Privacy & Security**, scroll to **Security**, and choose **Open Anyway**
+beside the Telynd message. Complete any Mac login prompt yourself and confirm
+**Open**. This approves the specific app. Do not disable Gatekeeper or remove
+quarantine metadata; stop if macOS reports malware or damage. If no approval
+appears, report the opening problem instead of weakening security settings.
+
+This package supports Apple silicon only. Runtime validation covers macOS 26;
+macOS 13–25 remain untested. See the [release notes and checksums](https://github.com/exponentialR/telynd/releases/tag/v0.2.0-preview.1)
+for the exact source and the tested opening journey. Apple signing and
+notarisation remain separate work in [release preparation](releasing.md).
+
+## Add your first computer
 
 1. Install Google Chrome and sign into the Chrome profile you use for remote
    access. For separate personal and work accounts, use a Chrome profile for
