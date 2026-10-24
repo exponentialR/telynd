@@ -49,7 +49,13 @@ struct PairingSetupView: View {
         VStack(alignment: .leading, spacing: 14) {
             Label("Prepare the remote PC", systemImage: "desktopcomputer").font(.headline)
             Text("Open your working Google remote session. Transfer the helper to that Linux PC, open the package installer, then launch Telynd Setup from its applications menu. The helper supplies the connection details for you.").font(.callout).foregroundStyle(.secondary)
-            Button("Get setup helper…") { store.exportLinuxSetupHelper() }
+            HStack {
+                if card == nil {
+                    Button("Open remote desktop") { store.connect(desktop) }
+                        .disabled(!desktop.hasDirectConnection || !store.profileReady(for: desktop))
+                }
+                Button("Get setup helper…") { store.exportLinuxSetupHelper() }
+            }
             Text("Ubuntu/Debian desktop preview. The package manager installs its desktop dependencies. Enabling SSH inside the helper requires administrator approval and preserves existing authentication and firewall policy.").font(.caption).foregroundStyle(.secondary)
             Divider()
             Label("Bring back its setup card", systemImage: "doc.on.clipboard").font(.headline)

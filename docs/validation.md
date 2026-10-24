@@ -14,7 +14,7 @@ All 71 Swift tests passed locally. Pairing coverage rejects unsupported or
 secret-bearing packets, malformed addresses, stale cards and identity mismatch;
 it limits candidate count and rejects cancelled or expired late results.
 Scanner stderr cannot supply public-key protocol output. The full local Python
-suite ran 52 tests without failures, with two expected platform/display skips.
+suite ran 53 tests without failures, with two expected platform/display skips.
 Nine release-security tests also passed after adding a helper-tampering case.
 The package is checked against reviewable source, root ownership/modes and a
 fixed PolicyKit action. Public-key reads and setup-file writes refuse symlinks
@@ -23,8 +23,12 @@ through a main-thread queue. Closing during approved SSH preparation is blocked
 until the operation finishes, avoiding an accidental package-install interruption.
 
 Linux CI on a disposable Ubuntu runner installed the actual `.deb`, executed
-its fixed root action, verified an active SSH service and passed its desktop
-copy-card test under Xvfb. Existing Linux authorisation, directory-security and
+its fixed root action and passed its desktop
+copy-card test under Xvfb. A subsequent run exposed a service-only readiness
+assumption on a socket-activated Ubuntu host. Preparation and CI now accept an
+active SSH service or socket; CI additionally requires actual public host-key
+output from the local SSH listener. The root-action test covers socket fallback
+and refusal when both are inactive. Existing Linux authorisation, directory-security and
 systemd lifecycle suites passed too. This is isolated installation/GUI evidence,
 not a real Google-host or first-time-user enrolment pilot. No personal host was
 modified. The remaining fresh-user journey includes graphical package-manager

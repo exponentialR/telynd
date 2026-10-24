@@ -9,7 +9,8 @@ supplies the connection details, and the Mac checks for a matching route.
 1. Add the computer through Google's picker and choose **Linux → Save & set up
    SSH…**, or open its **Recovery settings…** later. Keep its working Google
    remote session open, or use the PC in person.
-2. Choose **Get setup helper…**. Transfer the exported `.deb` file to that Linux
+2. Choose **Open remote desktop** to reach it without leaving setup, then
+   **Get setup helper…**. Transfer the exported `.deb` file to that Linux
    PC using a file-transfer method you already trust. Open it with its graphical
    package installer, approve installation and launch **Telynd Setup** from the
    applications menu. Package installation adds the helper and dependencies;
@@ -44,7 +45,7 @@ The connection-only option remains available throughout.
 
 This first helper targets Ubuntu/Debian graphical desktops with systemd,
 Python 3/Tk, PolicyKit and IPv4. Dependencies are declared in the Debian package.
-The system must have a configured graphical package installer and administrator
+The system must have a configured graphical package installer ([Ubuntu App Center supports downloaded debs](https://ubuntu.com/desktop/docs/en/24.04/explanation/snap-and-deb-packages/)) and administrator
 approval agent. Other Linux distributions and headless PCs use the advanced
 manual route. Mac/Windows retain their separate host-local developer kits.
 Actual distribution-specific package-store UX and a fresh non-technical-user
