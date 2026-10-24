@@ -48,6 +48,7 @@ public final class ConfigurationStore {
         try data.write(to: temporary)
         let destination = directory.appendingPathComponent(name)
         if FileManager.default.fileExists(atPath: destination.path) {
+            guard try FileManager.default.attributesOfItem(atPath: destination.path)[.type] as? FileAttributeType == .typeRegular else { throw ConfigurationError.writeLocked }
             _ = try FileManager.default.replaceItemAt(destination, withItemAt: temporary)
         } else { try FileManager.default.moveItem(at: temporary, to: destination) }
         // Replacement may retain an older destination's metadata.

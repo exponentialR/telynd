@@ -32,6 +32,7 @@ struct ContentView: View {
     @EnvironmentObject var store: AppStore
     @State private var editing: Desktop?
     @State private var search = ""
+    @State private var showingRemoved = false
     var filtered: [Desktop] {
         let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
         return store.desktops.filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) || ($0.chromeProfile?.email.localizedCaseInsensitiveContains(query) ?? false) }
@@ -51,6 +52,7 @@ struct ContentView: View {
                     .controlSize(.regular).disabled(store.writeLocked)
                 Menu {
                     Button("Setup guide") { store.refreshProfiles(); store.showGuide = true }
+                    Button("Recently removed computers…") { showingRemoved = true }.disabled(store.preferences.removedDesktops.isEmpty)
                 } label: { Image(systemName: "questionmark.circle") }
                     .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().accessibilityLabel("Help")
             }.padding(.horizontal, 24).padding(.vertical, 12)
@@ -63,6 +65,10 @@ struct ContentView: View {
                         Text("\(store.desktops.count) saved").font(.callout).foregroundStyle(.secondary)
                     }
                     if store.fixtureMode { Text("Preview · synthetic accounts; network actions disabled").font(.caption).foregroundStyle(.secondary) }
+                    if let id = store.lastRemovedID, let removed = store.preferences.removedDesktops.first(where: { $0.id == id }) {
+                        HStack { Text("Removed \(removed.name) from Telynd."); Spacer(); Button("Undo") { _ = store.restore(id) } }
+                            .font(.callout).padding(12).background(.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8))
+                    }
                     if store.writeLocked {
                         Label("Settings need attention. Your saved files have been preserved; correct them and reopen Telynd before saving.", systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
                     }
@@ -92,10 +98,37 @@ struct ContentView: View {
             .background(Color(nsColor: .windowBackgroundColor))
             .tint(Color(red: 18 / 255, green: 92 / 255, blue: 1))
             .sheet(item: $editing) { DesktopEditor(desktop: $0) }
+            .sheet(isPresented: $showingRemoved) { RemovedComputersSheet() }
             .sheet(isPresented: $store.showGuide) { OnboardingGuide() }
             .sheet(item: $store.recoveryDesktop) { RecoverySheet(desktop: $0) }
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in store.refreshProfiles(); store.refreshOperationNotes() }
             .alert("Telynd", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) { Button("OK") { store.error = nil } } message: { Text(store.error ?? "") }
+    }
+}
+struct RemovedComputersSheet: View {
+    @EnvironmentObject var store: AppStore
+    @Environment(\.dismiss) var dismiss
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("Recently removed computers").font(.title2.bold())
+            Text("These entries were removed from Telynd. Their Google registration, SSH access and host recovery were left in place.").font(.callout).foregroundStyle(.secondary)
+            ScrollView {
+                VStack(spacing: 14) {
+                    if store.preferences.removedDesktops.isEmpty { Text("No removed computers.").foregroundStyle(.secondary) }
+                    ForEach(Array(store.preferences.removedDesktops.reversed())) { item in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(item.name).font(.headline)
+                                if let email = item.chromeProfile?.email { Text(email).font(.caption).foregroundStyle(.secondary) }
+                            }
+                            Spacer()
+                            Button("Restore") { _ = store.restore(item.id) }.buttonStyle(ConnectButton()).disabled(store.writeLocked).accessibilityLabel("Restore \(item.name)")
+                        }.padding(12).background(.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 9))
+                    }
+                }
+            }
+            HStack { Spacer(); Button("Done") { dismiss() }.keyboardShortcut(.defaultAction) }
+        }.padding(28).frame(width: 580, height: 420)
     }
 }
 struct DesktopRow: View {
@@ -104,6 +137,7 @@ struct DesktopRow: View {
     let edit: () -> Void
     @State private var now = Date()
     @State private var detailsExpanded = false
+    @State private var confirmingRemoval = false
     var observed: HostObservation { store.observations[desktop.id] ?? HostObservation() }
     var title: String {
         if observed.busy { return "Checking recovery…" }
@@ -135,6 +169,8 @@ struct DesktopRow: View {
                     Button(detailsExpanded ? "Hide details" : "Details & recovery") { detailsExpanded.toggle() }
                     Divider()
                     Button("Recovery settings…") { store.recoveryDesktop = desktop }.disabled(store.writeLocked)
+                    Divider()
+                    Button("Remove from Telynd…", role: .destructive) { confirmingRemoval = true }.disabled(store.writeLocked)
                 } label: { Image(systemName: "ellipsis").frame(width: 18, height: 24) }
                     .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize().accessibilityLabel("Options for \(desktop.name)")
             }
@@ -143,7 +179,7 @@ struct DesktopRow: View {
                 HStack { Text(title).font(.callout.weight(.medium)); Spacer(); Button("Hide details") { detailsExpanded = false }.buttonStyle(.link) }
                 StatusDetails(observation: observed, now: now, platform: desktop.hostPlatform)
                 if let launched = desktop.lastLaunch { Text("Last opened: \(launched.formatted(date: .abbreviated, time: .shortened))").font(.caption).foregroundStyle(.secondary) }
-                if let note = store.operationNotes[desktop.id] { Text(note).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }
+                if let note = store.operationNotes[desktop.id] { Text("Last action: " + note).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }
                 HStack {
                     Button("Recovery settings…") { store.recoveryDesktop = desktop }
                     Spacer()
@@ -154,6 +190,12 @@ struct DesktopRow: View {
         }.padding(18).frame(maxWidth: .infinity, alignment: .leading)
             .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
             .overlay(RoundedRectangle(cornerRadius: 12).stroke(.primary.opacity(0.07)))
+            .alert("Remove \(desktop.name) from Telynd?", isPresented: $confirmingRemoval) {
+                Button("Cancel", role: .cancel) {}
+                Button("Remove computer", role: .destructive) { _ = store.remove(desktop.id) }
+            } message: {
+                Text("You can restore it from Recently removed computers in Help. This leaves its Google registration, SSH keys and recovery timer in place. Any setup already open in Terminal continues. To stop host recovery, use Recovery settings before removing this entry.")
+            }
             .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { now = $0 }
     }
 }
@@ -379,65 +421,177 @@ struct RecoverySheet: View {
     @Environment(\.dismiss) var dismiss
     @State var desktop: Desktop
     @State private var platform: HostPlatform = .unknown
-    @State private var target = ""
+    @State private var address = SSHAddress()
+    @State private var addressError: String?
     @State private var identity = ""
     @State private var now = Date()
+    @State private var waitingAction: String?
     var observed: HostObservation { store.observations[desktop.id] ?? HostObservation() }
     var current: Desktop { store.desktops.first(where: { $0.id == desktop.id }) ?? desktop }
+    var key: String { (identity as NSString).expandingTildeInPath }
+    var keyPairPresent: Bool { FileManager.default.fileExists(atPath: key) && FileManager.default.fileExists(atPath: key + ".pub") }
+    var valid: Bool { address.target != nil && InputValidation.identityPath(key) }
+    var detailsSaved: Bool { platform == current.hostPlatform && address.target == current.target && key == (current.identityPath ?? store.defaultIdentity) }
+    var accessReady: Bool { detailsSaved && keyPairPresent && observed.ssh == .ready && observed.report?.isStale(at: now) == false }
+    var canInstall: Bool {
+        valid && accessReady && observed.report?.supported == true && observed.report?.values["service_loaded"] == "loaded" && observed.report?.values["missing_tools"] == "" && !observed.busy && waitingAction == nil
+    }
+    var discoveryCommands: String {
+        """
+        whoami
+        hostname -I
+        for key in /etc/ssh/ssh_host_*_key.pub; do
+          [ ! -f "$key" ] || ssh-keygen -lf "$key"
+        done
+        """
+    }
     func saveDetails() -> Bool {
         var value = current; value.hostPlatform = platform
-        if !platform.usesSSHRecovery { return store.save(value) }
-        value.target = target.isEmpty ? nil : target
-        value.identityPath = (identity as NSString).expandingTildeInPath
+        if platform.usesSSHRecovery {
+            guard let target = address.target, InputValidation.identityPath(key) else { return false }
+            value.target = target; value.identityPath = key
+        }
         return store.save(value)
     }
-    var detailsSaved: Bool { platform == current.hostPlatform && target == current.target && (identity as NSString).expandingTildeInPath == (current.identityPath ?? store.defaultIdentity) }
-    var valid: Bool { InputValidation.target(target) && InputValidation.identityPath((identity as NSString).expandingTildeInPath) }
+    func launch(_ action: String) {
+        if saveDetails(), store.terminal(current, action: action) { waitingAction = action }
+    }
+    func pollCompletion() {
+        now = Date()
+        guard let action = waitingAction else { return }
+        store.refreshOperationNotes()
+        guard let result = store.terminalResult(current, action: action), !["awaiting_terminal", "in_progress"].contains(result) else { return }
+        waitingAction = nil
+        if detailsSaved && valid { store.check(current) }
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text("Recovery for \(desktop.name)").font(.title2.bold())
             Picker("Remote operating system", selection: $platform) {
                 ForEach(HostPlatform.allCases) { item in Text(item.label).tag(item) }
+            }.disabled(waitingAction != nil)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    if platform == .unknown {
+                        Text("Choose this computer’s operating system to see its setup steps. Screen connections work without recovery.").foregroundStyle(.secondary)
+                    } else if platform.usesSSHRecovery {
+                        linuxSetup
+                    } else {
+                        Text("Recovery is set up on the remote computer itself. No SSH connection is required for Mac or Windows.").foregroundStyle(.secondary)
+                        Text(platform == .macos ? "Mac recovery runs in a signed-in desktop session. Google’s screen and control permissions must be approved on that Mac." : "Windows recovery restarts a crashed service. It leaves an orderly stop alone and needs administrator approval to change the recovery policy.")
+                        Text("These host kits are development previews awaiting real-host validation and distribution signing.").font(.caption).foregroundStyle(.secondary)
+                        HStack {
+                            Button("Save operating system") { _ = saveDetails() }
+                            Button("Export recovery kit…") { store.exportRecoveryKit(current) }.disabled(platform != current.hostPlatform)
+                            Button("Import host report…") { store.importHostReport(current) }.disabled(platform != current.hostPlatform)
+                        }
+                        Text("Transfer the kit to that computer and follow its README, then import a fresh report after changes.").font(.callout).foregroundStyle(.secondary)
+                        StatusDetails(observation: observed, now: now, platform: current.hostPlatform)
+                    }
+                }.frame(maxWidth: .infinity, alignment: .leading)
             }
-            if !platform.usesSSHRecovery {
-                Text("Recovery is set up locally on the remote computer. Export its kit, transfer it to that computer and follow the README. No inbound SSH is required. These host kits are development previews awaiting real-host validation and distribution signing.").font(.callout).foregroundStyle(.secondary)
-                Text(platform == .macos ? "Mac: recovery runs only in a signed-in desktop session, with bounded start attempts. Grant Google’s screen/control permissions on that Mac when required." : "Windows: native crash recovery with bounded restart attempts. An orderly stop is not automatically recovered. Administrator approval is needed to change or restore the service’s recovery policy.").font(.callout)
-                HStack {
-                    Button("Save operating system") { _ = saveDetails() }
-                    Button("Export recovery kit…") { store.exportRecoveryKit(current) }.disabled(platform != current.hostPlatform)
-                    Button("Import host report…") { store.importHostReport(current) }.disabled(platform != current.hostPlatform)
-                }
-                Text("Follow the kit’s README to check, enable or remove recovery on the remote computer. Import a fresh report after changes.").font(.caption).foregroundStyle(.secondary)
-                StatusDetails(observation: observed, now: now, platform: current.hostPlatform)
-                if let note = store.operationNotes[desktop.id] { Text(note).font(.callout).foregroundStyle(.secondary) }
-            } else {
-            Text("Optional recovery supports Linux with systemd and an existing per-account Chrome host service. Other computers can remain connection-only. An existing reachable SSH route is needed; Tailscale is optional.").font(.callout).foregroundStyle(.secondary)
-            TextField("SSH account and host, for example researcher@workstation.example", text: $target)
-            HStack { TextField("Private key path", text: $identity); Button("Choose key…") { let panel = NSOpenPanel(); panel.canChooseDirectories = false; panel.showsHiddenFiles = true; if panel.runModal() == .OK, let url = panel.url { identity = url.path } } }
-            HStack {
-                Button("Save and check readiness") { if saveDetails() { store.check(current) } }.disabled(!valid || observed.busy)
-                Button("SSH Terminal") { if saveDetails() { store.terminal(current, action: "connect") } }.disabled(!valid)
-            }
-            StatusDetails(observation: observed, now: now, platform: current.hostPlatform)
-            if let note = store.operationNotes[desktop.id] { Text(note).font(.callout).foregroundStyle(.secondary).textSelection(.enabled) }
             Divider()
-            Text("Each action explains its scope before opening Terminal. Enter login and administrator passwords directly there. No password is saved by Telynd.").font(.caption).foregroundStyle(.secondary)
             HStack {
-                Button("Create a new SSH key…") { if saveDetails() { store.terminal(current, action: "generate-key") } }.disabled(!valid || FileManager.default.fileExists(atPath: (identity as NSString).expandingTildeInPath))
-                Button("Authorise SSH access…") { if saveDetails() { store.terminal(current, action: "authorise") } }.disabled(!valid)
-                Button("Install recovery…") { if saveDetails() { store.terminal(current, action: "install") } }.disabled(!valid || !detailsSaved || observed.report?.supported != true || observed.report?.values["service_loaded"] != "loaded" || observed.report?.values["missing_tools"] != "" || observed.report?.isStale(at: now) == true || observed.busy)
+                Text("Recovery is optional. Connect works independently.").font(.caption).foregroundStyle(.secondary)
+                Spacer(); Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
             }
-            HStack {
-                Button("Recover if stopped") { store.check(current, recover: true) }.disabled(!detailsSaved || observed.report?.recoveryEnabled != true || observed.report?.isStale(at: now) == true || observed.busy)
-                Spacer()
-                Button("Disable timer…") { store.terminal(current, action: "disable") }.disabled(!valid || !detailsSaved || current.target == nil || observed.busy)
-                Button("Uninstall recovery…") { store.terminal(current, action: "uninstall") }.disabled(!valid || !detailsSaved || current.target == nil || observed.busy)
+        }.padding(28).frame(width: 740, height: 660)
+            .onAppear {
+                platform = current.hostPlatform; address = SSHAddress(target: current.target); identity = store.suggestedIdentity(for: current)
+                if !store.fixtureMode && platform.usesSSHRecovery && valid && detailsSaved { store.check(current) }
             }
+            .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in pollCompletion() }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in pollCompletion() }
+            .onChange(of: address) { _ in addressError = nil }
+    }
+    var linuxSetup: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            Text("Telynd uses SSH as a second way to reach Linux when the screen connection fails. Setup creates or reuses a key; passwords are entered directly in Terminal.").font(.callout).foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("1. Find the Linux computer").font(.headline)
+                    Spacer()
+                    Button("Paste address") {
+                        if let value = SSHAddress.pasted(NSPasteboard.general.string(forType: .string)) { address = value; addressError = nil }
+                        else { addressError = "Copy user@computer or a simple ssh user@computer login command first. SSH options and custom ports are not supported here." }
+                    }.font(.caption)
+                }
+                HStack {
+                    TextField("Linux username", text: $address.username).accessibilityLabel("Linux username")
+                    TextField("Computer address", text: $address.host).accessibilityLabel("Computer address")
+                }
+                Text("Use its Linux login name and an address reachable from this Mac, such as a local address or an existing VPN address.").font(.caption).foregroundStyle(.secondary)
+                if let addressError { Text(addressError).font(.caption).foregroundStyle(.red) }
+                DisclosureGroup("Where do I find these? What if SSH is not enabled?") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Open that computer through Google Remote Desktop while it is working, or use it in person. Telynd cannot enable SSH on a computer it cannot already reach.")
+                        Text("On Ubuntu, enable Secure Shell in System settings. Its SSH login command can be copied into Paste address above. If Secure Shell is missing, install OpenSSH Server using Ubuntu’s guide. If password login is disabled and no existing key works, an administrator must authorise this Mac on that computer.")
+                        Link("Ubuntu’s OpenSSH setup guide", destination: URL(string: "https://ubuntu.com/server/docs/how-to/security/openssh-server/")!)
+                        Text("In a Terminal on the Linux computer, these read-only commands show its login name, addresses and public SSH fingerprints. They do not change that computer:")
+                        Text(discoveryCommands).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
+                        Button("Copy discovery commands") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(discoveryCommands, forType: .string) }
+                        Text("Compare the SSH fingerprint shown during setup against the matching fingerprint from that computer, or ask its administrator for a trusted record.")
+                    }.font(.callout).foregroundStyle(.secondary).padding(.top, 10)
+                }.font(.callout)
             }
-            HStack { Spacer(); Button("Done") { dismiss() }.keyboardShortcut(.defaultAction) }
-        }.padding(28).frame(width: 800)
-            .onAppear { platform = current.hostPlatform; target = current.target ?? ""; identity = current.identityPath ?? store.defaultIdentity }
-            .onReceive(Timer.publish(every: 30, on: .main, in: .common).autoconnect()) { now = $0 }
+            Divider()
+            VStack(alignment: .leading, spacing: 10) {
+                Text("2. Allow this Mac to connect").font(.headline)
+                if accessReady {
+                    Label("SSH access verified", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                } else if detailsSaved && keyPairPresent && observed.ssh == .ready {
+                    Text("Access was verified previously. Refresh the check before changing recovery.").font(.callout).foregroundStyle(.secondary)
+                    Button("Refresh access check") { store.check(current) }.buttonStyle(ConnectButton()).disabled(observed.busy || waitingAction != nil)
+                } else {
+                    Text("Choose Set up SSH access. Telynd creates a key if needed, adds its public key to your Linux account and checks access when you return. Existing key files are never overwritten.").font(.callout).foregroundStyle(.secondary)
+                    if detailsSaved && observed.ssh == .ready && !keyPairPresent { Text("SSH account access works, but Telynd still needs a complete key pair for setup. Choose Set up SSH access or select an existing pair in Advanced settings.").font(.caption).foregroundStyle(.secondary) }
+                    HStack {
+                        Button("Set up SSH access…") { launch("setup-access") }.buttonStyle(ConnectButton())
+                            .disabled(!valid || observed.busy || waitingAction != nil || (detailsSaved && observed.ssh == .identityChanged))
+                        Button("Check existing access") { if saveDetails() { store.check(current) } }.disabled(!valid || observed.busy || waitingAction != nil)
+                    }
+                    if detailsSaved, let ssh = observed.ssh, ssh != .ready { Text(ssh.guidance).font(.callout).foregroundStyle(.secondary) }
+                }
+                if !accessReady { Text("First-time setup may ask you to choose a key passphrase, verify the host fingerprint and enter your Linux login password. Telynd does not save passwords.").font(.caption).foregroundStyle(.secondary) }
+                if observed.busy { ProgressView("Checking current access…").controlSize(.small) }
+                if waitingAction != nil { Text("Continue in Terminal. Telynd checks the result automatically when setup finishes.").font(.callout).foregroundStyle(.secondary) }
+            }
+            Divider()
+            VStack(alignment: .leading, spacing: 10) {
+                Text("3. Enable automatic recovery").font(.headline)
+                if !accessReady {
+                    Text("Finish the access check in step 2 to unlock automatic recovery.").font(.callout).foregroundStyle(.secondary)
+                } else if observed.report?.recoveryEnabled == true {
+                    Label("Recovery enabled", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                    Text("The host timer checks every two minutes and starts an enabled Chrome service if it has stopped or failed.").font(.callout).foregroundStyle(.secondary)
+                } else {
+                    Text("Once access is verified, enable recovery and approve its one-time administrator setup in Terminal. Later checks use the key and restricted helpers.").font(.callout).foregroundStyle(.secondary)
+                    Button("Enable automatic recovery…") { launch("install") }.buttonStyle(ConnectButton()).disabled(!canInstall)
+                    if accessReady && !canInstall { Text(observed.report?.configurationLabel(at: now) ?? "Check access for current installation requirements.").font(.caption).foregroundStyle(.secondary) }
+                }
+            }
+            DisclosureGroup("Advanced settings & diagnostics") {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack {
+                        TextField("SSH private key path", text: $identity)
+                        Button("Choose key…") { let panel = NSOpenPanel(); panel.canChooseDirectories = false; panel.showsHiddenFiles = true; if panel.runModal() == .OK, let url = panel.url { identity = url.path } }
+                    }
+                    Button("SSH Terminal") { if saveDetails() { _ = store.terminal(current, action: "connect") } }.disabled(!valid || waitingAction != nil)
+                    if detailsSaved {
+                        StatusDetails(observation: observed, now: now, platform: current.hostPlatform)
+                        if let note = store.operationNotes[desktop.id] { Text("Last setup result: " + note).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }
+                    } else { Text("Check access to verify the edited settings.").font(.caption).foregroundStyle(.secondary) }
+                    HStack {
+                        Button("Recheck") { if saveDetails() { store.check(current) } }.disabled(!valid || observed.busy || waitingAction != nil)
+                        Button("Recover if stopped") { store.check(current, recover: true) }.disabled(!accessReady || observed.report?.recoveryEnabled != true || observed.busy || waitingAction != nil)
+                    }
+                    HStack {
+                        Button("Disable timer…") { launch("disable") }
+                        Button("Uninstall recovery…") { launch("uninstall") }
+                    }.disabled(!valid || !detailsSaved || observed.busy || waitingAction != nil)
+                }.padding(.top, 12)
+            }.font(.callout)
+        }
     }
 }
 

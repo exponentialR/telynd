@@ -6,7 +6,7 @@ key=${3:-"$HOME/.ssh/id_ed25519"}
 receipt=${4:-}
 resources=$(cd "$(dirname "$0")" && pwd)
 case "$mode" in
-  authorise|install|disable|uninstall|generate-key) exec /bin/bash "$resources/setup-mac.command" "$target" "$mode" "$key" "$receipt" ;;
+  setup-access|authorise|install|disable|uninstall|generate-key) exec /bin/bash "$resources/setup-mac.command" "$target" "$mode" "$key" "$receipt" ;;
   connect) ;;
   *) echo 'Unknown action'; exit 2;;
 esac

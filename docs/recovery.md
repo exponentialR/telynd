@@ -10,21 +10,48 @@ not yet supported.
 
 ## Set up access
 
-Open **Recovery settings** on a computer's card. Enter its SSH account/address
-and choose an existing private key with a matching `.pub` file. If you need a
-key, choose an unused path and **Create a new SSH key**. Choose a passphrase in
-the standard SSH prompt. Existing keys are never overwritten; Telynd does not
-choose an empty passphrase or store one.
+Open a computer's **… → Recovery settings…** and select **Linux**. Telynd
+checks previously saved access automatically when this screen opens. New setup
+has three steps:
 
-**Save and check readiness** performs a bounded, non-interactive SSH check.
-It reads service and installation state; it does not install anything, add
-keys or start services. Its messages distinguish missing network access,
-authentication and host identity problems. When first trusting a host, compare
-its fingerprint against a trusted record using **SSH Terminal**. A changed
-host identity needs investigation; do not bypass the warning or blindly delete
-a known-host record.
+1. Enter the **Linux username** and **Computer address**, or use **Paste address**
+   with `user@computer` or a simple `ssh user@computer` command. No SSH options,
+   custom ports or shell commands are accepted by that paste action. The address
+   must be reachable from this Mac, through the local network or an existing VPN.
+2. Choose **Set up SSH access…**. Telynd creates a key pair if both files are
+   absent, or reuses the selected pair. New connections normally use
+   `~/.ssh/telynd_ed25519`; existing SSH settings retain their previous key.
+   Existing or incomplete key files are never overwritten. Choose a passphrase,
+   compare the host fingerprint against a trusted record and enter the Linux
+   login password directly in Terminal when requested. macOS Keychain handles
+   supported passphrase storage; Telynd does not choose or save a password.
+3. Return to Telynd. It reads the action's receipt and checks current access.
+   Once the host's supported Chrome service and required tools are verified,
+   **Enable automatic recovery…** offers the separate administrator-approved
+   installation. Already-enabled recovery is shown without repeating setup.
 
-**Authorise SSH access** is a separate, confirmed action. Before agent or host
+**Check existing access** skips authorisation and performs a bounded read-only
+check. Key selection, an interactive SSH Terminal, detailed status, manual
+recovery, disabling and uninstalling are under **Advanced settings & diagnostics**.
+Editing the target or key makes the old verification inapplicable until checked.
+
+SSH must already be enabled and reachable on the remote computer. Telynd cannot
+bootstrap it through a connection that does not exist, infer its Linux login or
+address from a Google connection URL, or grant initial access without an existing
+login method. The in-app help explains Ubuntu's Secure Shell settings and links
+[Ubuntu's OpenSSH guide](https://ubuntu.com/server/docs/how-to/security/openssh-server/).
+It also provides fixed read-only commands to show the remote username,
+addresses and public host-key fingerprints. Run them on that computer through
+an existing Google session or physical access. If password login is disabled
+and no key already works, ask the administrator to authorise this Mac. Telynd
+does not enable password authentication or open firewall/router ports.
+
+A changed host fingerprint requires investigation through a trusted route.
+Telynd leaves host checks enabled; do not blindly remove the old trust record.
+Authorisation adds only the selected public key to the specified Linux account
+and then verifies non-interactive account access. Recovery is installed separately.
+
+During the confirmed **Set up SSH access** action, before agent or host
 changes, OpenSSH validates a single public-key snapshot. It derives the public
 identity from the selected private key and compares it with that snapshot. A mismatch or
 unreadable private key stops setup. Protected keys may prompt for their
@@ -64,11 +91,10 @@ local commands and SSH connection sharing for these connections, including the
 verification step. Hostname and routing configuration can still be inherited;
 an SSH agent can authenticate locally without being forwarded to the host.
 
-After readiness identifies the supported service, **Install recovery** explains
+After readiness identifies the supported service, **Enable automatic recovery** explains
 the scope and opens Terminal for administrator approval. The installer validates
 a narrow sudoers rule, installs root-owned components, records hashes, and
-checks permissions, timer enablement and timer activity. Return to Telynd and
-recheck current readiness. Terminal outcomes are stored in private receipts;
+checks permissions, timer enablement and timer activity. Return to Telynd; the guided flow checks current readiness automatically. Terminal outcomes are stored in private receipts;
 an interrupted operation may have made partial changes and is never described
 as rolled back.
 

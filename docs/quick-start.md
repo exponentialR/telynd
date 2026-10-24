@@ -37,6 +37,20 @@ recovery** and **Recovery settings…**. Details contain service checks and laun
 history; they do not establish that Google can connect. **Setup guide** is in
 the toolbar's help menu. You can close setup and resume its saved progress.
 
+To remove an entry, choose **… → Remove from Telynd…**. The confirmation explains
+that Google registration, SSH keys and host recovery remain in place. Use
+**Undo** immediately, or **Help → Recently removed computers… → Restore** later,
+even after reopening Telynd. To stop host recovery, disable or uninstall it in
+Recovery settings before removing the saved entry. A Terminal setup already in
+progress continues independently.
+
+Linux recovery now offers a guided **Set up SSH access…** action. You provide or
+paste the Linux login/address once; Telynd handles key creation if needed and
+authorisation, then checks access after Terminal finishes. **Advanced settings &
+diagnostics** holds key paths and maintenance actions. The remote PC still needs
+SSH enabled and reachable, and you approve first trust and passwords yourself.
+Mac and Windows host kits do not require inbound SSH.
+
 Existing computers inherit their previous global Chrome choice once when this
 build first opens. Later computers and unfinished drafts do not inherit that
 obsolete preference. Changing a computer's account or connection link clears

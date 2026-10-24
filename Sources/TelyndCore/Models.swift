@@ -87,7 +87,7 @@ public enum GuideStep: Int, Codable, CaseIterable {
 }
 
 public struct Preferences: Codable, Equatable {
-    public var schemaVersion: Int = 2
+    public var schemaVersion: Int = 3
     public var chromeProfileEmail: String = ""
     public var chromeProfileDirectory: String?
     public var guideStep: GuideStep = .welcome
@@ -95,15 +95,16 @@ public struct Preferences: Codable, Equatable {
     public var guideDesktopID: UUID?
     public var guideCompleted: Bool = false
     public var connectionProfilesMigrated: Bool = false
+    public var removedDesktops: [Desktop] = []
     public init() {}
     public var legacyChromeProfile: ChromeProfileReference? {
         chromeProfileEmail.isEmpty ? nil : ChromeProfileReference(directory: chromeProfileDirectory, email: chromeProfileEmail)
     }
-    enum CodingKeys: String, CodingKey { case schemaVersion, chromeProfileEmail, chromeProfileDirectory, guideStep, guideDraft, guideDesktopID, guideCompleted, connectionProfilesMigrated }
+    enum CodingKeys: String, CodingKey { case schemaVersion, chromeProfileEmail, chromeProfileDirectory, guideStep, guideDraft, guideDesktopID, guideCompleted, connectionProfilesMigrated, removedDesktops }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         schemaVersion = try c.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
-        guard schemaVersion == 1 || schemaVersion == 2 else { throw ConfigurationError.unsupportedVersion }
+        guard (1...3).contains(schemaVersion) else { throw ConfigurationError.unsupportedVersion }
         chromeProfileEmail = try c.decodeIfPresent(String.self, forKey: .chromeProfileEmail) ?? ""
         chromeProfileDirectory = try c.decodeIfPresent(String.self, forKey: .chromeProfileDirectory)
         guideStep = try c.decodeIfPresent(GuideStep.self, forKey: .guideStep) ?? .welcome
@@ -112,6 +113,8 @@ public struct Preferences: Codable, Equatable {
         // An existing email-only installation is an existing user, not a first launch.
         guideCompleted = try c.decodeIfPresent(Bool.self, forKey: .guideCompleted) ?? !chromeProfileEmail.isEmpty
         connectionProfilesMigrated = try c.decodeIfPresent(Bool.self, forKey: .connectionProfilesMigrated) ?? false
+        removedDesktops = try c.decodeIfPresent([Desktop].self, forKey: .removedDesktops) ?? []
+        guard removedDesktops.allSatisfy(\.valid), Set(removedDesktops.map(\.id)).count == removedDesktops.count else { throw ConfigurationError.invalidDesktop }
     }
 }
 

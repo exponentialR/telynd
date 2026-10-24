@@ -85,14 +85,23 @@ no global account switch. New computers use the sole available signed-in
 profile automatically; multiple profiles require a one-time selection. Missing
 or changed profiles require an explicit choice and never fall back to another
 account. Existing global choices are migrated once to existing computers and
-setup drafts, preserving their SSH settings. Preferences advance to schema 2,
-which older builds reject rather than ignoring per-computer account choices.
+setup drafts, preserving their SSH settings. Preferences use schema 3,
+which older builds reject rather than ignoring account choices or saved removals.
 The account label reflects Chrome metadata; the URL reader cannot identify the
 Google account active in the captured tab. Profile selection is not Google authentication. There is no telemetry or
 Google device-list API integration. Captured and saved Google links are checked before launch;
 SSH and Google device identities are never assumed to be equivalent.
 
-Routine readiness checks are explicit, bounded and read-only. One-time changes
+Removed entries are kept privately in preferences for Undo and **Help → Recently
+removed computers**. Removal does not unregister the Google host, revoke SSH
+keys or uninstall host recovery. Those changes have their own explicit actions.
+
+Linux recovery setup guides the user through the address, one combined key
+creation/authorisation action, and separate recovery installation. SSH must
+already be enabled and reachable; first trust and passwords stay in Terminal.
+Saved Linux recovery settings and completed Terminal actions trigger bounded,
+read-only readiness checks. New or edited details also have an explicit check.
+One-time changes
 are explained before Terminal opens. Login passwords and passphrases stay in
 standard SSH, Keychain and sudo prompts. SSH host identity checks remain enabled.
 The root permissions permit only the account's fixed recovery and read-only

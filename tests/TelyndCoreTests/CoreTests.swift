@@ -86,7 +86,7 @@ final class CoreTests: XCTestCase {
         }
     }
     func testFutureSchemaAndDuplicateIDsAreRejected() throws {
-        XCTAssertThrowsError(try JSONDecoder().decode(Preferences.self, from: Data("{\"schemaVersion\":3}".utf8)))
+        XCTAssertThrowsError(try JSONDecoder().decode(Preferences.self, from: Data("{\"schemaVersion\":4}".utf8)))
         try withStore { store, _ in
             let item = Desktop(name: "Home")
             XCTAssertThrowsError(try store.saveDesktops([item, item]))

@@ -6,7 +6,7 @@ target=${1:-}
 mode=${2:-authorise}
 key=${3:-"$HOME/.ssh/id_ed25519"}
 receipt=${4:-}
-case "$mode" in authorise|install|disable|uninstall|generate-key) ;; *) echo 'Unknown setup action'; exit 2;; esac
+case "$mode" in setup-access|authorise|install|disable|uninstall|generate-key) ;; *) echo 'Unknown setup action'; exit 2;; esac
 result=failed
 write_receipt() {
   [ -n "$receipt" ] || return 0
@@ -33,11 +33,25 @@ fi
 if ! [[ "$target" =~ ^[A-Za-z_][A-Za-z0-9_-]*@[A-Za-z0-9][A-Za-z0-9.-]*$ ]]; then
   echo 'Use an SSH target in the form user@hostname.'; exit 2
 fi
-[ -f "$key" ] && [ -f "$key.pub" ] || { echo 'Choose an existing private key and matching .pub file, or create a key first.'; exit 1; }
+if [ "$mode" = setup-access ]; then
+  echo 'Telynd guided SSH setup. The remote computer must already have SSH enabled.'
+  if [ ! -e "$key" ] && [ ! -L "$key" ] && [ ! -e "$key.pub" ] && [ ! -L "$key.pub" ]; then
+    echo 'Step 1 of 2: create this Mac’s key. Choose a passphrase when asked.'
+    /bin/bash "$0" "$target" generate-key "$key"
+  else
+    echo 'Step 1 of 2: use the existing key pair. Existing files will not be overwritten.'
+  fi
+  echo 'Step 2 of 2: approve this Mac on the remote computer.'
+fi
+[ -f "$key" ] && [ -f "$key.pub" ] || {
+  echo 'The selected key pair is incomplete. Existing files have not been overwritten.'
+  echo 'In Telynd’s Advanced settings, choose a different unused key path and try Set up SSH access again.'
+  result=key_validation_failed; exit 1
+}
 resources=$(cd "$(dirname "$0")" && pwd)
 . "$resources/ssh-policy.sh"
 telynd_ssh_policy yes "$key"
-if [ "$mode" = authorise ]; then
+if [ "$mode" = authorise ] || [ "$mode" = setup-access ]; then
   result=key_validation_failed
   [ "$(wc -c < "$key.pub")" -le 16384 ] || { echo 'Public key is too large.'; exit 1; }
   public_key=$(cat < "$key.pub")
@@ -79,4 +93,7 @@ else
 fi
 echo 'Finished. Return to Telynd and recheck readiness for the current state.'
 write_receipt
+# Completion has been recorded. Closing the finished Terminal must not refresh
+# an old result's timestamp or turn a completed setup into a cancellation.
+trap - EXIT INT TERM HUP
 if [ -t 0 ]; then read -r -p 'Press Return to close. ' _ || true; fi

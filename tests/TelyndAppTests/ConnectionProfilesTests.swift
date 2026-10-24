@@ -25,7 +25,7 @@ final class AppConnectionProfilesTests: XCTestCase {
             XCTAssertEqual(store.desktops, [expected])
             XCTAssertEqual(store.preferences.guideDraft, expected)
             XCTAssertTrue(store.preferences.connectionProfilesMigrated)
-            XCTAssertEqual(store.preferences.schemaVersion, 2)
+            XCTAssertEqual(store.preferences.schemaVersion, 3)
             XCTAssertEqual(try configuration.loadDesktops(), [expected])
             // A later unfinished draft must not inherit the obsolete global preference.
             var unfinished = Desktop(name: "New draft")
