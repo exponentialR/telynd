@@ -37,8 +37,8 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y python3-tk pkexec xvfb
-          dpkg-deb --info assets/telynd-setup_0.2.0_all.deb
-          sudo dpkg -i assets/telynd-setup_0.2.0_all.deb
+          dpkg-deb --info assets/telynd-setup_0.2.1_all.deb
+          sudo dpkg -i assets/telynd-setup_0.2.1_all.deb
           # Exercise the missing-server path on this disposable runner too.
           sudo apt-get remove -y openssh-server
           test ! -x /usr/sbin/sshd

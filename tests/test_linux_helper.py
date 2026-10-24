@@ -28,6 +28,60 @@ BUILD = module('telynd_package', 'scripts/build_linux_helper.py')
 
 
 class HelperTest(unittest.TestCase):
+    def test_writable_home_is_detected_and_repaired_without_recursive_changes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder).resolve(); home.chmod(0o772)
+            child = home/'shared-file'; child.write_text('preserved'); child.chmod(0o666)
+            issues, repairable = HELPER.permission_status(home)
+            self.assertTrue(repairable); self.assertIn('Home folder', issues[0])
+            HELPER.repair_permissions(home)
+            self.assertEqual(home.stat().st_mode & 0o777, 0o750)
+            self.assertEqual(child.stat().st_mode & 0o777, 0o666)
+            self.assertEqual(child.read_text(), 'preserved')
+            self.assertEqual(HELPER.permission_status(home), ([], False))
+
+    def test_ssh_permissions_are_checked_and_only_write_bits_are_removed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder).resolve(); ssh = home/'.ssh'; ssh.mkdir(mode=0o777); ssh.chmod(0o777)
+            key = ssh/'authorized_keys'; key.write_text('public data'); key.chmod(0o666)
+            issues, repairable = HELPER.permission_status(home)
+            self.assertTrue(repairable); self.assertEqual(len(issues), 2)
+            HELPER.repair_permissions(home)
+            self.assertEqual(ssh.stat().st_mode & 0o777, 0o755)
+            self.assertEqual(key.stat().st_mode & 0o777, 0o644)
+            self.assertEqual(key.read_text(), 'public data')
+
+    def test_unsafe_paths_are_not_repaired_or_followed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder).resolve(); ssh = home/'.ssh'; ssh.mkdir()
+            preserved = home/'preserved'; preserved.write_text('unchanged'); preserved.chmod(0o666)
+            key = ssh/'authorized_keys'; key.symlink_to(preserved)
+            for kind in ['symlink', 'hardlink', 'fifo']:
+                if kind == 'hardlink': key.unlink(); os.link(preserved, key)
+                if kind == 'fifo': key.unlink(); os.mkfifo(key)
+                home.chmod(0o772)
+                issues, repairable = HELPER.permission_status(home)
+                self.assertTrue(issues); self.assertFalse(repairable)
+                with self.assertRaises((OSError, ValueError)): HELPER.repair_permissions(home)
+                self.assertEqual(home.stat().st_mode & 0o777, 0o772)
+                self.assertEqual(preserved.stat().st_mode & 0o777, 0o666)
+            key.unlink(); ssh.rmdir(); ssh.symlink_to(home)
+            self.assertFalse(HELPER.permission_status(home)[1])
+            with self.assertRaises(OSError): HELPER.repair_permissions(home)
+
+    def test_foreign_owned_paths_require_administrator_review_without_chmod(self):
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder).resolve(); home.chmod(0o772)
+            original = HELPER.os.fstat
+            def foreign(descriptor):
+                attributes = original(descriptor)
+                values = list(attributes); values[4] = os.getuid() + 1
+                return os.stat_result(values)
+            with mock.patch.object(HELPER.os, 'fstat', side_effect=foreign), mock.patch.object(HELPER.os, 'fchmod') as chmod:
+                self.assertFalse(HELPER.permission_status(home)[1])
+                with self.assertRaises(ValueError): HELPER.repair_permissions(home)
+                chmod.assert_not_called()
+
     def test_addresses_prefer_existing_vpn_filter_virtual_interfaces_and_limit_scope(self):
         rows = [{'ifname': 'eth0', 'flags': ['UP'], 'addr_info': [{'local': '192.0.2.4'}]},
                 {'ifname': 'docker0', 'flags': ['UP'], 'addr_info': [{'local': '10.0.0.1'}]},
@@ -95,7 +149,7 @@ class HelperTest(unittest.TestCase):
 
     def test_package_matches_reviewable_sources_and_has_no_install_time_ssh_action(self):
         package = BUILD.package()
-        self.assertEqual(package, (ROOT/'assets/telynd-setup_0.2.0_all.deb').read_bytes())
+        self.assertEqual(package, (ROOT/'assets/telynd-setup_0.2.1_all.deb').read_bytes())
         self.assertTrue(package.startswith(b'!<arch>\n'))
         offset = 8; members = {}
         while offset < len(package):
@@ -117,6 +171,38 @@ class HelperTest(unittest.TestCase):
 
 @unittest.skipUnless(sys.platform == 'linux' and os.environ.get('DISPLAY'), 'Linux desktop test needs Xvfb')
 class HelperDesktopTest(unittest.TestCase):
+    def test_writable_home_blocks_copy_and_explicit_repair_restores_readiness(self):
+        import tkinter as tk
+        from tkinter import messagebox
+        with tempfile.TemporaryDirectory() as folder:
+            home = Path(folder).resolve(); home.chmod(0o772)
+            original_status = HELPER.permission_status; original_repair = HELPER.repair_permissions
+            original_mainloop = tk.Tk.mainloop; captured = {}
+            def visit(window):
+                def descendants(widget):
+                    for child in widget.winfo_children():
+                        yield child
+                        yield from descendants(child)
+                def interact():
+                    widgets = list(descendants(window))
+                    repair = next(child for child in widgets if child.winfo_class() == 'TButton' and child.cget('text') == 'Fix folder permissions…')
+                    if str(repair.cget('state')) != 'normal': window.after(50, interact); return
+                    copy = next(child for child in widgets if child.winfo_class() == 'TButton' and child.cget('text') == 'Copy setup card')
+                    captured['blocked'] = str(copy.cget('state')) == 'disabled'
+                    with mock.patch.object(messagebox, 'askokcancel', return_value=False): repair.invoke()
+                    captured['cancelled_mode'] = home.stat().st_mode & 0o777
+                    with mock.patch.object(messagebox, 'askokcancel', return_value=True): repair.invoke()
+                    window.after(50, lambda: collect(copy))
+                def collect(copy):
+                    if str(copy.cget('state')) != 'normal': window.after(50, lambda: collect(copy)); return
+                    captured['ready'] = True; window.destroy()
+                window.after(50, interact); window.after(5000, window.destroy); original_mainloop(window)
+            with mock.patch.object(HELPER, 'addresses', return_value=['192.0.2.4']), mock.patch.object(HELPER, 'public_keys', return_value=[{'type': 'ssh-ed25519', 'key': 'synthetic'}]), mock.patch.object(HELPER, 'command', return_value='active\n'), mock.patch.object(HELPER, 'permission_status', side_effect=lambda: original_status(home)), mock.patch.object(HELPER, 'repair_permissions', side_effect=lambda: original_repair(home)), mock.patch.object(tk.Tk, 'mainloop', visit):
+                HELPER.main()
+            self.assertTrue(captured['blocked']); self.assertTrue(captured['ready'])
+            self.assertEqual(captured['cancelled_mode'], 0o772)
+            self.assertEqual(home.stat().st_mode & 0o777, 0o750)
+
     def test_desktop_helper_opens_without_terminal_and_can_copy_a_fresh_card(self):
         import tkinter as tk
         blob = b'\0\0\0\x0bssh-ed25519\0\0\0\x20' + b'x' * 32
@@ -143,7 +229,7 @@ class HelperDesktopTest(unittest.TestCase):
             window.after(50, interact)
             window.after(5000, window.destroy)
             original_mainloop(window)
-        with mock.patch.object(HELPER, 'addresses', return_value=['192.0.2.4']), mock.patch.object(HELPER, 'public_keys', return_value=keys), mock.patch.object(HELPER, 'command', return_value='active\n'), mock.patch.object(tk.Tk, 'mainloop', visit):
+        with mock.patch.object(HELPER, 'addresses', return_value=['192.0.2.4']), mock.patch.object(HELPER, 'public_keys', return_value=keys), mock.patch.object(HELPER, 'permission_status', return_value=([], False)), mock.patch.object(HELPER, 'command', return_value='active\n'), mock.patch.object(tk.Tk, 'mainloop', visit):
             HELPER.main()
         value = json.loads(base64.b64decode(captured['card'][8:]))
         self.assertEqual(value['addresses'], ['192.0.2.4'])

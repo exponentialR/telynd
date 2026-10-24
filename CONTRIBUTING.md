@@ -54,7 +54,7 @@ The Ubuntu/Debian desktop helper is built from `linux-helper/`. Regenerate its
 bundled package after every helper or packager change:
 
 ```sh
-python3 scripts/build_linux_helper.py assets/telynd-setup_0.2.0_all.deb
+python3 scripts/build_linux_helper.py assets/telynd-setup_0.2.1_all.deb
 python3 -m unittest discover -s tests -p test_linux_helper.py -v
 ```
 

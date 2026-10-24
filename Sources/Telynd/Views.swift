@@ -577,6 +577,10 @@ struct RecoverySheet: View {
     var setupStep: Int { address.target == nil ? 1 : (accessReady || waitingAction == "install" ? 3 : 2) }
     var accessMessage: String? {
         guard detailsSaved, let result = observed.ssh, result != .ready else { return nil }
+        if let outcome = store.terminalResult(current, action: "setup-access") {
+            if outcome == "permissions_need_attention" { return "Linux folder permissions prevent key login. Open Telynd Setup on Linux, choose Check again and review Fix folder permissions before trying approval again." }
+            if outcome == "verification_unavailable" { return "Authorisation ran, but password-free login failed. Open Telynd Setup on Linux and choose Check again. Resolve any folder-permission warning; if none appears, ask the administrator to review SSH policy." }
+        }
         switch result {
         case .authenticationRequired: return "This Mac still needs permission. Choose Approve this Mac and enter the Linux account password in Terminal."
         case .identityNeedsVerification: return "Terminal will ask you to confirm the PC’s identity. Compare it with the helper’s setup details before accepting."

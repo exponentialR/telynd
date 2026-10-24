@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 """Local Linux setup UI. Only public pairing details leave this computer."""
 import base64
+from contextlib import contextmanager
 import ipaddress
 import json
 import os
@@ -14,6 +15,67 @@ import stat
 import subprocess
 import threading
 import time
+
+
+@contextmanager
+def permission_entries(home=None):
+    """Pin the account's own paths; never chmod a substituted link or inode."""
+    home = Path(pwd.getpwuid(os.getuid()).pw_dir) if home is None else Path(home)
+    descriptors = []
+    try:
+        directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+        home_fd = os.open(home, directory_flags)
+        descriptors.append(('Home folder', home_fd, True))
+        try:
+            ssh_fd = os.open('.ssh', directory_flags, dir_fd=home_fd)
+        except FileNotFoundError:
+            yield descriptors
+            return
+        descriptors.append(('SSH folder', ssh_fd, True))
+        try:
+            key_fd = os.open('authorized_keys', os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW, dir_fd=ssh_fd)
+        except FileNotFoundError:
+            yield descriptors
+            return
+        descriptors.append(('Authorised keys file', key_fd, False))
+        yield descriptors
+    finally:
+        for _, descriptor, _ in reversed(descriptors): os.close(descriptor)
+
+
+def inspect_permission_entries(entries):
+    issues = []
+    repairable = True
+    for label, descriptor, directory in entries:
+        attributes = os.fstat(descriptor)
+        valid_type = stat.S_ISDIR(attributes.st_mode) if directory else stat.S_ISREG(attributes.st_mode) and attributes.st_nlink == 1
+        if not valid_type or attributes.st_uid != os.getuid():
+            issues.append(f'{label} needs administrator attention: it must be an ordinary path owned by your Linux account.')
+            repairable = False
+        elif attributes.st_mode & 0o022:
+            issues.append(f'{label} allows other users to write to it; SSH can refuse key login.')
+    return issues, bool(issues) and repairable
+
+
+def permission_status(home=None):
+    try:
+        with permission_entries(home) as entries:
+            return inspect_permission_entries(entries)
+    except OSError:
+        return ['The home or SSH paths could not be checked safely. Ask the administrator to check ownership, links and access permissions.'], False
+
+
+def repair_permissions(home=None):
+    with permission_entries(home) as entries:
+        issues, repairable = inspect_permission_entries(entries)
+        if issues and not repairable:
+            raise ValueError('These paths need administrator attention. No permissions were changed.')
+        for _, descriptor, _ in entries:
+            mode = stat.S_IMODE(os.fstat(descriptor).st_mode)
+            if mode & 0o022:
+                os.fchmod(descriptor, mode & ~0o022)
+        remaining, _ = inspect_permission_entries(entries)
+        if remaining: raise ValueError('Permissions still need administrator attention. Some paths may have changed; check again.')
 
 
 def command(args):
@@ -123,8 +185,8 @@ def main():
     username = pwd.getpwuid(os.getuid()).pw_name
     root = tk.Tk()
     root.title('Telynd Setup')
-    root.geometry('640x590')
-    root.minsize(580, 540)
+    root.geometry('640x670')
+    root.minsize(580, 640)
     frame = ttk.Frame(root, padding=28)
     frame.pack(fill='both', expand=True)
     ttk.Label(frame, text='Prepare this PC for recovery', font=('', 18, 'bold')).pack(anchor='w', pady=(0, 14))
@@ -132,11 +194,12 @@ def main():
     ttk.Label(frame, text=f'Computer: {socket.gethostname()}\nLinux account: {username}').pack(anchor='w', pady=(0, 18))
     status = tk.StringVar(value='Checking this PC…')
     ttk.Label(frame, textvariable=status, wraplength=560).pack(anchor='w', pady=(0, 16))
-    cached = {'addresses': [], 'keys': [], 'ready': False, 'busy': False, 'preparing': False}
+    cached = {'addresses': [], 'keys': [], 'ready': False, 'busy': False, 'preparing': False, 'active': False, 'permission_issues': [], 'repairable': False}
     completed = queue.Queue()
 
     def buttons():
-        prepare_button.configure(state='disabled' if cached['busy'] else 'normal')
+        prepare_button.configure(text='SSH is running' if cached['active'] else 'Enable SSH…', state='disabled' if cached['busy'] or cached['active'] else 'normal')
+        repair_button.configure(state='normal' if cached['repairable'] and not cached['busy'] else 'disabled')
         check_button.configure(state='disabled' if cached['busy'] else 'normal')
         for button in [copy_button, save_button]:
             button.configure(state='normal' if cached['ready'] and not cached['busy'] else 'disabled')
@@ -157,9 +220,12 @@ def main():
         def worker():
             candidates, keys = addresses(), public_keys()
             active = command(['/usr/bin/systemctl', 'is-active', 'ssh.service']).strip() == 'active' or command(['/usr/bin/systemctl', 'is-active', 'ssh.socket']).strip() == 'active'
+            issues, repairable = permission_status()
             def finish():
-                cached.update(addresses=candidates, keys=keys, ready=active and bool(candidates) and bool(keys), busy=False)
-                if not active:
+                cached.update(addresses=candidates, keys=keys, active=active, permission_issues=issues, repairable=repairable, ready=active and bool(candidates) and bool(keys) and not issues, busy=False)
+                if issues:
+                    status.set(' '.join(issues) + (' Choose Fix folder permissions to review the repair.' if repairable else ''))
+                elif not active:
                     status.set('SSH is not running. Choose Enable SSH and approve the administrator prompt, or ask the administrator to enable it.')
                 elif not candidates:
                     status.set('No supported network route was found. Connect this PC to your shared IPv4 network or existing VPN, then choose Check again.')
@@ -171,6 +237,16 @@ def main():
                 if after: after()
             completed.put(finish)
         threading.Thread(target=worker, daemon=True).start()
+
+    def repair():
+        if cached['busy'] or not cached['repairable']: return
+        if not messagebox.askokcancel('Fix folder permissions?', 'This removes group and other users’ write permission from your home folder, SSH folder or authorised keys file where needed. Shared users may lose write access to these paths. It does not change permissions recursively, alter other files or SSH settings, or use administrator access.'):
+            return
+        try:
+            repair_permissions()
+        except (OSError, ValueError) as error:
+            messagebox.showinfo('Permissions need attention', str(error) + ' Some permissions may already have been tightened. Choose Check again or ask the administrator.')
+        refresh()
 
     def prepare():
         if cached['busy']: return
@@ -196,7 +272,7 @@ def main():
     def card():
         # copy/save refresh asynchronously before reaching this callback.
         if not cached['ready']:
-            raise ValueError('This PC is not ready. Enable SSH or check its network, then try again.')
+            raise ValueError('This PC is not ready. Resolve the permission or SSH message above, then check again.')
         return make_card(username, socket.gethostname(), cached['addresses'], cached['keys'])
 
     def copy():
@@ -221,6 +297,8 @@ def main():
 
     prepare_button = ttk.Button(frame, text='Enable SSH…', command=prepare)
     prepare_button.pack(anchor='w', pady=(0, 8))
+    repair_button = ttk.Button(frame, text='Fix folder permissions…', command=repair)
+    repair_button.pack(anchor='w', pady=(0, 8))
     check_button = ttk.Button(frame, text='Check again', command=refresh)
     check_button.pack(anchor='w', pady=(0, 18))
     ttk.Separator(frame).pack(fill='x', pady=(0, 18))

@@ -16,11 +16,19 @@ supplies the connection details, and the Mac checks for a matching route.
    **Install** in the graphical software installer and approve installation.
    Find **Telynd Setup** in that PC's applications and open it. Package
    installation adds the helper and dependencies; it does not itself enable SSH.
-3. **Still on Linux:** if the helper offers **Enable SSH…**, choose it and
+3. **Still on Linux:** the helper checks the home folder and existing SSH paths
+   for unsafe ownership, links and write permissions before allowing a setup
+   card. If it offers **Fix folder permissions…**, review and approve the repair.
+   This removes only group/other write bits from the affected account-owned
+   home folder, `.ssh` folder or `authorized_keys` file; it does not recursively
+   change files. Shared users may lose write access to those paths. Unexpected
+   owners, symlinks, hard links and special files require administrator review.
+   If the helper offers **Enable SSH…**, choose it and
    approve the administrator prompt. It installs OpenSSH Server if needed and
    starts/enables its service. Existing authentication and firewall settings
    govern where it accepts connections. It does not change password-login
    policy, VPN configuration or authorised keys, or open firewall/router ports.
+   When SSH is running, its button becomes a disabled **SSH is running** status.
    When ready, choose **Copy setup card**. The helper collects the login name,
    addresses and public SSH identity; the user does not have to find them.
 4. **Back in Telynd on this Mac:** choose **Continue to paste setup card**,
@@ -110,3 +118,11 @@ Removing the helper through the Linux package manager does not disable OpenSSH
 that you approved or remove authorised keys. Disabling SSH is a separate
 administrator action and may disconnect existing users. Telynd's recovery timer
 also has separate Disable and Uninstall controls in the Mac app.
+
+Helper version 0.2.1 adds the folder-permission preflight and explicit repair.
+Users of an older helper must install the new package to receive these checks.
+Mac-only updates do not replace the helper on an already configured Linux PC.
+The SSH authorisation script independently refuses a writable or unexpectedly
+owned home folder before changing authorised keys. A specific result directs
+the user back to Linux setup; SSH StrictModes remains enabled. Other server
+authentication policies may still need administrator attention.

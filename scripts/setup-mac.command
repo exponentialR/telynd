@@ -75,7 +75,13 @@ if [ "$mode" = authorise ] || [ "$mode" = setup-access ]; then
   # Only fixed product code is a remote command. Key text travels on stdin;
   # no filename or key content is ever parsed as a shell command.
   remote_command="exec /bin/sh -c '$(sed "s/'/'\\\\''/g" "$resources/authorise-remote.sh")'"
-  printf '%s\n' "$public_key" | ssh -T "${telynd_ssh_options[@]}" "$target" "$remote_command"
+  if printf '%s\n' "$public_key" | ssh -T "${telynd_ssh_options[@]}" "$target" "$remote_command"; then
+    :
+  else
+    code=$?
+    if [ "$code" = 23 ]; then result=permissions_need_attention; fi
+    exit "$code"
+  fi
   telynd_ssh_policy yes "$key"
   result=verification_unavailable
   ssh "${telynd_ssh_options[@]}" -o BatchMode=yes -o StrictHostKeyChecking=yes "$target" true

@@ -178,6 +178,8 @@ the exact public key in that account's `authorized_keys` before changing it.
 | --- | --- |
 | SSH unreachable | Wake the computer; check its address and network route |
 | Authentication needed | Choose the correct key; authorise SSH access in Terminal |
+| Folder permissions need attention | In Linux Telynd Setup, choose Check again and review Fix folder permissions; unexpected ownership or links need administrator review |
+| Authorisation ran, key login still fails | Check Linux folder permissions first; if safe, ask the administrator to review SSH policy |
 | New/changed identity | Verify the fingerprint through a trusted route |
 | No systemd / non-Linux | Keep connection-only access |
 | Chrome service missing | Configure Google's Linux host for this desktop account |

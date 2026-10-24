@@ -27,7 +27,7 @@ cp scripts/macos-recovery.sh scripts/windows-recovery.ps1 scripts/WindowsService
 cp assets/branding/Telynd.icns "$app/Contents/Resources/"
 cp assets/branding/telynd-logo-v2.png assets/branding/telynd-logo-dark.png "$app/Contents/Resources/"
 cp assets/chrome-setup.html "$app/Contents/Resources/"
-cp assets/telynd-setup_0.2.0_all.deb "$app/Contents/Resources/"
+cp assets/telynd-setup_0.2.1_all.deb "$app/Contents/Resources/"
 chmod 755 "$app/Contents/MacOS/Telynd" "$app/Contents/Resources/"*.command "$app/Contents/Resources/"*.sh
 cat > "$app/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
