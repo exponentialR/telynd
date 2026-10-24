@@ -17,6 +17,8 @@ import CryptoKit
     @Published var writeLocked = false
     @Published private(set) var readingChromeConnection = false
     @Published private(set) var lastRemovedID: UUID?
+    // Open editors can outlive an archive deletion; they must not recreate it.
+    private var permanentlyDeletedIDs: Set<UUID> = []
     let configuration: ConfigurationStore
     let fixtureMode: Bool
     var fixtureAppearance: ColorScheme? {
@@ -70,6 +72,7 @@ import CryptoKit
     }
     @discardableResult func save(_ desktop: Desktop) -> Bool {
         guard !writeLocked else { error = ConfigurationError.writeLocked.localizedDescription; return false }
+        guard !permanentlyDeletedIDs.contains(desktop.id) else { error = "This computer entry was permanently deleted. Add it again as a new computer if needed."; return false }
         guard !preferences.removedDesktops.contains(where: { $0.id == desktop.id }) else { error = "This computer was removed. Restore it from Recently removed computers before editing it."; return false }
         var desktop = desktop
         if let old = desktops.first(where: { $0.id == desktop.id }), old.chromeURL != desktop.chromeURL || old.chromeProfile != desktop.chromeProfile {
@@ -110,6 +113,25 @@ import CryptoKit
         catch { self.error = error.localizedDescription; return false }
         guard updatePreferences({ $0.removedDesktops.removeAll { $0.id == desktopID } }) else { return false }
         desktops = updated
+        if lastRemovedID == desktopID { lastRemovedID = nil }
+        return true
+    }
+    @discardableResult func permanentlyDelete(_ desktopID: UUID) -> Bool {
+        guard !writeLocked else { error = ConfigurationError.writeLocked.localizedDescription; return false }
+        guard preferences.removedDesktops.contains(where: { $0.id == desktopID }),
+              !desktops.contains(where: { $0.id == desktopID }) else { return false }
+        // Removal may have left an old active-list row after a failed write.
+        // Clean that file before discarding the authoritative removal record.
+        do { try configuration.saveDesktops(desktops) }
+        catch { self.error = "The entry could not be permanently deleted. It remains in Recently removed computers. " + error.localizedDescription; return false }
+        guard updatePreferences({ value in
+            value.removedDesktops.removeAll { $0.id == desktopID }
+            if value.guideDesktopID == desktopID { value.guideDesktopID = nil; value.guideStep = .computer }
+            if value.guideDraft?.id == desktopID { value.guideDraft = nil }
+        }) else { return false }
+        permanentlyDeletedIDs.insert(desktopID)
+        hostChecks.invalidate(desktopID); operationNotes[desktopID] = nil
+        if recoveryDesktop?.id == desktopID { recoveryDesktop = nil }
         if lastRemovedID == desktopID { lastRemovedID = nil }
         return true
     }

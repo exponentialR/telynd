@@ -1,5 +1,28 @@
 # Onboarding validation record
 
+## Permanent deletion of removed entries, 24 October 2026
+
+Removed computer entries have no automatic expiry. **Help → Recently removed
+computers…** now states that retention explicitly and offers **Delete
+permanently…** beside Restore. Its confirmation names the entry, explains that
+it cannot be restored and preserves the scope: Google registration, SSH keys
+and remote recovery remain in place. Terminal launchers and receipts are also
+preserved; this is saved-entry deletion, not secure erasure or access revocation.
+
+All 77 Swift tests passed, including four added deletion cases. They cover
+relaunch, an uncleaned old active-list row, blocked writes to either settings
+file, stale editors/actions, write locking and preservation of keys/receipts.
+The active-list file must be cleaned before the authoritative archive entry is
+discarded; failures retain a restorable archive. Session-local deleted IDs block
+open editors from recreating the entry without retaining its connection data.
+
+Native synthetic checks verified retention text, the named confirmation and
+Cancel preserving the entry. Permanent deletion itself was exercised by the
+isolated store tests, not against a personal desktop. Failures are shown inside
+the removed-computers sheet. No remote host changes were made.
+
+![Permanent deletion beside Restore with explicit retention](images/permanent-deletion.png)
+
 ## Visible recovery progress, 24 October 2026
 
 Linux recovery now shows all three stages and highlights the current step.

@@ -110,6 +110,90 @@ final class RemovalTests: XCTestCase {
             XCTAssertEqual(try String(contentsOf: receipt), "preserved receipt")
         }
     }
+    func testPermanentDeletionSurvivesRelaunchAndCannotBeRestoredOrSavedByAnOldEditor() async throws {
+        try await setup { configuration, directory in
+            let key = directory.appendingPathComponent("private-key")
+            try Data("preserved key".utf8).write(to: key)
+            let computer = Desktop(name: "Deleted", target: "reader@host.example", identityPath: key.path, hostPlatform: .linux)
+            let other = Desktop(name: "Kept")
+            try configuration.saveDesktops([computer, other])
+            let store = AppStore(configuration: configuration)
+            let launchers = directory.appendingPathComponent("Launchers")
+            try FileManager.default.createDirectory(at: launchers, withIntermediateDirectories: false)
+            let receipt = launchers.appendingPathComponent("\(computer.id.uuidString)-install.receipt")
+            try Data("preserved receipt".utf8).write(to: receipt)
+            XCTAssertTrue(store.remove(computer.id))
+            // A previous failed removal cleanup must not resurrect the entry.
+            try configuration.saveDesktops([computer, other])
+            XCTAssertTrue(store.permanentlyDelete(computer.id))
+            XCTAssertNil(store.lastRemovedID)
+            XCTAssertTrue(store.preferences.removedDesktops.isEmpty)
+            XCTAssertFalse(store.restore(computer.id))
+            XCTAssertFalse(store.save(computer))
+            XCTAssertFalse(store.saveGuideDraft(computer))
+            XCTAssertFalse(store.terminal(computer, action: "install"))
+            store.check(computer); XCTAssertNil(store.observations[computer.id])
+            let reopened = AppStore(configuration: configuration)
+            XCTAssertEqual(reopened.desktops, [other])
+            XCTAssertTrue(reopened.preferences.removedDesktops.isEmpty)
+            XCTAssertFalse(reopened.restore(computer.id))
+            XCTAssertTrue(reopened.save(Desktop(name: "Added again")))
+            XCTAssertEqual(try String(contentsOf: key), "preserved key")
+            XCTAssertEqual(try String(contentsOf: receipt), "preserved receipt")
+        }
+    }
+    func testPermanentDeletionRequiresAnArchivedEntryAndWritableSettings() async throws {
+        try await setup { configuration, _ in
+            let computer = Desktop(name: "Active")
+            try configuration.saveDesktops([computer])
+            let store = AppStore(configuration: configuration)
+            XCTAssertFalse(store.permanentlyDelete(computer.id))
+            XCTAssertFalse(store.permanentlyDelete(UUID()))
+            XCTAssertTrue(store.remove(computer.id))
+            store.writeLocked = true
+            XCTAssertFalse(store.permanentlyDelete(computer.id))
+            XCTAssertEqual(store.preferences.removedDesktops, [computer])
+        }
+    }
+    func testFailedPermanentDeletionCleanupKeepsTheArchiveAuthoritative() async throws {
+        try await setup { configuration, directory in
+            let computer = Desktop(name: "Archived")
+            try configuration.saveDesktops([computer])
+            let store = AppStore(configuration: configuration)
+            XCTAssertTrue(store.remove(computer.id))
+            let activeURL = directory.appendingPathComponent("desktops.json")
+            try FileManager.default.removeItem(at: activeURL)
+            try FileManager.default.createDirectory(at: activeURL, withIntermediateDirectories: false)
+            XCTAssertFalse(store.permanentlyDelete(computer.id))
+            XCTAssertEqual(store.preferences.removedDesktops, [computer])
+            XCTAssertEqual(try configuration.loadPreferences(existingDesktops: false).removedDesktops, [computer])
+            // Recover storage with the old row still present: the archive hides it.
+            try FileManager.default.removeItem(at: activeURL)
+            try configuration.saveDesktops([computer])
+            let reopened = AppStore(configuration: configuration)
+            XCTAssertTrue(reopened.desktops.isEmpty)
+            XCTAssertTrue(reopened.restore(computer.id))
+        }
+    }
+    func testFailedPermanentDeletionCommitRemainsRestorableAfterReopening() async throws {
+        try await setup { configuration, directory in
+            let computer = Desktop(name: "Archived")
+            try configuration.saveDesktops([computer])
+            let store = AppStore(configuration: configuration)
+            XCTAssertTrue(store.remove(computer.id))
+            let preferencesURL = directory.appendingPathComponent("preferences.json")
+            let archived = try Data(contentsOf: preferencesURL)
+            try FileManager.default.removeItem(at: preferencesURL)
+            try FileManager.default.createDirectory(at: preferencesURL, withIntermediateDirectories: false)
+            XCTAssertFalse(store.permanentlyDelete(computer.id))
+            XCTAssertEqual(store.preferences.removedDesktops, [computer])
+            try FileManager.default.removeItem(at: preferencesURL)
+            try archived.write(to: preferencesURL)
+            let reopened = AppStore(configuration: configuration)
+            XCTAssertTrue(reopened.desktops.isEmpty)
+            XCTAssertTrue(reopened.restore(computer.id))
+        }
+    }
     func testTerminalCompletionRequiresTheSameActionTargetAndKey() async throws {
         try await setup { configuration, directory in
             let computer = Desktop(name: "Lab", target: "reader@host.example", identityPath: "/tmp/key", hostPlatform: .linux)

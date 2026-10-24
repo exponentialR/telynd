@@ -104,8 +104,11 @@ Google device-list API integration. Captured and saved Google links are checked 
 SSH and Google device identities are never assumed to be equivalent.
 
 Removed entries are kept privately in preferences for Undo and **Help → Recently
-removed computers**. Removal does not unregister the Google host, revoke SSH
-keys or uninstall host recovery. Those changes have their own explicit actions.
+removed computers** with no automatic expiry. **Delete permanently…** in that
+screen deletes a saved entry after confirmation, without an option to restore.
+Removal and permanent deletion do not unregister the Google host, revoke SSH
+keys or uninstall host recovery. Terminal launchers and receipts remain in
+place. Those host and access changes have their own explicit actions.
 
 Adding a computer has two visible steps: **Connection → Recovery (optional)**.
 The recovery step explains the selected operating system's route. For Linux,

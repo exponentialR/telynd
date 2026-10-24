@@ -108,10 +108,15 @@ struct ContentView: View {
 struct RemovedComputersSheet: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.dismiss) var dismiss
+    @State private var pendingDeletion: Desktop?
+    @State private var confirmingDeletion = false
+    @State private var deletionError: String?
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Text("Recently removed computers").font(.title2.bold())
             Text("These entries were removed from Telynd. Their Google registration, SSH access and host recovery were left in place.").font(.callout).foregroundStyle(.secondary)
+            Text("Kept until you restore or permanently delete them. There is no automatic expiry.").font(.caption).foregroundStyle(.secondary)
+            if let deletionError { Text(deletionError).font(.callout).foregroundStyle(.red) }
             ScrollView {
                 VStack(spacing: 14) {
                     if store.preferences.removedDesktops.isEmpty { Text("No removed computers.").foregroundStyle(.secondary) }
@@ -122,6 +127,8 @@ struct RemovedComputersSheet: View {
                                 if let email = item.chromeProfile?.email { Text(email).font(.caption).foregroundStyle(.secondary) }
                             }
                             Spacer()
+                            Button("Delete permanently…", role: .destructive) { deletionError = nil; pendingDeletion = item; confirmingDeletion = true }
+                                .disabled(store.writeLocked).accessibilityLabel("Permanently delete \(item.name)")
                             Button("Restore") { _ = store.restore(item.id) }.buttonStyle(ConnectButton()).disabled(store.writeLocked).accessibilityLabel("Restore \(item.name)")
                         }.padding(12).background(.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 9))
                     }
@@ -129,6 +136,18 @@ struct RemovedComputersSheet: View {
             }
             HStack { Spacer(); Button("Done") { dismiss() }.keyboardShortcut(.defaultAction) }
         }.padding(28).frame(width: 580, height: 420)
+            .alert("Permanently delete \(pendingDeletion?.name ?? "this computer")?", isPresented: $confirmingDeletion) {
+                Button("Cancel", role: .cancel) { pendingDeletion = nil }
+                Button("Delete permanently", role: .destructive) {
+                    if let item = pendingDeletion, !store.permanentlyDelete(item.id) {
+                        deletionError = store.error ?? "This entry could not be deleted. Reopen Recently removed computers and try again."
+                        store.error = nil
+                    }
+                    pendingDeletion = nil
+                }
+            } message: {
+                Text("This deletes the saved computer entry from Telynd. You cannot restore it afterwards. Its Google registration, SSH keys and remote recovery stay in place.")
+            }
     }
 }
 struct DesktopRow: View {

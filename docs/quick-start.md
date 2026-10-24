@@ -53,7 +53,11 @@ the toolbar's help menu. You can close setup and resume its saved progress.
 To remove an entry, choose **… → Remove from Telynd…**. The confirmation explains
 that Google registration, SSH keys and host recovery remain in place. Use
 **Undo** immediately, or **Help → Recently removed computers… → Restore** later,
-even after reopening Telynd. To stop host recovery, disable or uninstall it in
+even after reopening Telynd. Removed entries have no automatic expiry. In that
+same screen, **Delete permanently…** deletes an entry after confirmation; it
+can no longer be restored. This removes the saved entry only: Google
+registration, SSH keys, Terminal launchers/receipts and host recovery stay in
+place. To stop host recovery, disable or uninstall it in
 Recovery settings before removing the saved entry. A Terminal setup already in
 progress continues independently.
 
