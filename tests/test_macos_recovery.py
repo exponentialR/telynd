@@ -51,9 +51,14 @@ root=$TELYND_FIXTURE_ROOT
 case "$1" in
  print-disabled) if [ -f "$root/disabled" ]; then echo '"org.chromium.chromoting" => true'; else echo '{}'; fi;;
  print)
-   if [[ "$2" == */com.telynd.recovery ]]; then [ -f "$root/loaded" ]
+   if [[ "$2" == */com.telynd.recovery ]]; then
+     [ -f "$root/loaded" ] || exit 1
+     if [ -f "$root/foreign-job" ]; then echo ' path = /tmp/foreign.plist'
+     else echo " path = $root/home/Library/LaunchAgents/com.telynd.recovery.plist"; fi
    else [ ! -f "$root/no-session" ] || exit 1; printf ' state = %s\\n' "$(cat "$root/service")"; fi;;
- bootstrap) [ ! -f "$root/fail-bootstrap" ] || exit 1; touch "$root/loaded";;
+ bootstrap) [ ! -f "$root/fail-bootstrap" ] && [ ! -f "$root/agent-disabled" ] || exit 1; touch "$root/loaded";;
+ disable) touch "$root/agent-disabled";;
+ enable) rm -f "$root/agent-disabled";;
  bootout) rm "$root/loaded";;
  kickstart) printf 'start\\n' >> "$root/starts"; if [ ! -f "$root/keep-stopped" ]; then echo running > "$root/service"; fi;;
  *) exit 2;;
@@ -80,6 +85,9 @@ esac
         self.assertEqual(self.run_mode('recover')['outcome'],'unchanged')
         self.assertEqual((self.root/'starts').read_text(),'start\n')
         self.assertEqual(self.run_mode('disable')['installation'],'disabled')
+        self.assertTrue((self.root/'agent-disabled').exists())
+        self.assertEqual(self.run_mode('install')['installation'],'verified')
+        self.assertFalse((self.root/'agent-disabled').exists())
         self.assertEqual(self.run_mode('uninstall')['installation'],'missing')
         self.assertTrue(self.marker.exists())
 
@@ -131,6 +139,17 @@ esac
         (self.folder/'manifest').unlink()
         self.run_mode('install',ok=False)
         self.assertTrue((self.folder/'macos-recovery.sh').exists())
+
+    def test_foreign_loaded_launch_label_is_never_replaced_or_unloaded(self):
+        (self.root/'loaded').touch(); (self.root/'foreign-job').touch()
+        self.run_mode('install',ok=False)
+        self.assertFalse((self.folder/'macos-recovery.sh').exists())
+        (self.root/'foreign-job').unlink(); (self.root/'loaded').unlink()
+        self.run_mode('install')
+        (self.root/'foreign-job').touch()
+        self.assertEqual(self.run_mode('check')['installation'],'drift')
+        self.run_mode('disable',ok=False)
+        self.assertTrue((self.root/'loaded').exists())
 
 
 if __name__ == '__main__': unittest.main()

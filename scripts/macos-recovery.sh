@@ -29,7 +29,7 @@ outcome=checked
 # An ordinary user agent executes only as that user; still refuse links,
 # hardlinks, unsafe ancestors and foreign files instead of repairing them.
 safe_tree() {
-  local path=$1 current=/ part owner permissions
+  local path=$1 current=/ part owner permissions acl
   local -a parts
   IFS=/ read -r -a parts <<< "${path#/}"
   for part in '' "${parts[@]}"; do
@@ -41,7 +41,8 @@ safe_tree() {
       [ "$owner" = 0 ] || [ "$owner" = "$uid" ] || return 1
       (( (8#$permissions & 8#022) == 0 )) || return 1
       # Explicit ACL entries can grant writes beyond the POSIX mode.
-      ! ls -lde "$current" | tail -n +2 | grep -q ' allow ' || return 1
+      acl=$(ls -lde "$current") || return 1
+      ! printf '%s\n' "$acl" | tail -n +2 | grep -q ' allow ' || return 1
     fi
   done
 }
@@ -57,13 +58,23 @@ owned() {
   safe_file "$folder/manifest" 600 && safe_file "$helper" 700 && safe_file "$agent" 600 &&
     (cd "$folder" && shasum -a 256 -c manifest >/dev/null 2>&1)
 }
+loaded_ours() {
+  local state line
+  state=$(launchctl print "$domain/$label" 2>/dev/null) || return 1
+  while IFS= read -r line; do
+    line="${line#"${line%%[![:space:]]*}"}"
+    [ "$line" != "path = $agent" ] || return 0
+  done <<< "$state"
+  return 1
+}
 root_tree() {
-  local path=$1
+  local path=$1 acl
   while :; do
     [ ! -L "$path" ] && [ "$(stat -f %u "$path")" = 0 ] || return 1
     local permissions; permissions=$(stat -f %Lp "$path")
     (( (8#$permissions & 8#022) == 0 )) || return 1
-    ! ls -lde "$path" | tail -n +2 | grep -q ' allow ' || return 1
+    acl=$(ls -lde "$path") || return 1
+    ! printf '%s\n' "$acl" | tail -n +2 | grep -q ' allow ' || return 1
     [ "$path" != / ] || break
     path=$(dirname "$path")
   done
@@ -100,7 +111,8 @@ report() {
     installation=drift
     if owned; then
       installation=disabled
-      if launchctl print "$domain/$label" >/dev/null 2>&1; then installation=verified; fi
+      if loaded_ours; then installation=verified
+      elif launchctl print "$domain/$label" >/dev/null 2>&1; then installation=drift; fi
     fi
   elif [ -e "$helper" ] || [ -e "$agent" ]; then installation=partial; fi
   local version architecture
@@ -117,6 +129,7 @@ for file in "$folder/attempts"; do
   if [ -e "$file" ] || [ -L "$file" ]; then safe_file "$file" 600 || fail 'Unsafe recovery state.'; fi
 done
 if [ "$mode" = install ]; then
+  if launchctl print "$domain/$label" >/dev/null 2>&1 && ! loaded_ours; then fail 'The recovery launch label belongs to another job. Nothing replaced.'; fi
   inspect_google
   [ "$enablement" = enabled ] && [ "$recovery" = stopped-service ] || fail 'Enable and register Chrome Remote Desktop, sign in, and check its permissions first.'
   if [ -e "$helper" ] || [ -L "$helper" ] || [ -e "$agent" ] || [ -L "$agent" ] || [ -e "$folder/manifest" ] || [ -L "$folder/manifest" ]; then
@@ -140,11 +153,15 @@ PLIST
     chmod 600 "$agent"
     shasum -a 256 "$helper" "$agent" > "$folder/manifest"; chmod 600 "$folder/manifest"
   fi
+  # enable is explicit on (re)installation. disable must survive a new login.
+  launchctl enable "$domain/$label"
   if ! launchctl print "$domain/$label" >/dev/null 2>&1; then launchctl bootstrap "$domain" "$agent"; fi
-  owned && launchctl print "$domain/$label" >/dev/null || fail 'Installation read-back failed.'
+  owned && loaded_ours || fail 'Installation read-back failed.'
   outcome=installed
 elif [ "$mode" = disable ] || [ "$mode" = uninstall ]; then
   owned || fail 'Unrecognised or modified recovery components. Nothing removed.'
+  if launchctl print "$domain/$label" >/dev/null 2>&1 && ! loaded_ours; then fail 'The launch label no longer matches this recovery installation.'; fi
+  launchctl disable "$domain/$label"
   if launchctl print "$domain/$label" >/dev/null 2>&1; then launchctl bootout "$domain/$label"; fi
   ! launchctl print "$domain/$label" >/dev/null 2>&1 || fail 'Recovery agent is still loaded.'
   outcome=disabled

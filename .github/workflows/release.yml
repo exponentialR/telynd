@@ -89,6 +89,7 @@ jobs:
         run: |
           swift test
           python3 -m unittest discover -s tests -v
+          TELYND_DISPOSABLE_MACOS=1 bash tests/macos-launchd.sh
           for script in scripts/*.sh scripts/*.command tests/*.sh build.sh; do bash -n "$script"; done
           bash build.sh
           ditto --norsrc --noextattr -c -k --keepParent build/Telynd.app build/release-input.zip

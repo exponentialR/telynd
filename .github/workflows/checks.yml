@@ -49,6 +49,10 @@ jobs:
           python3 -m unittest discover -s tests -p test_ssh_policy.py -v
       - name: Exercise isolated macOS recovery lifecycle
         run: python3 -m unittest discover -s tests -p test_macos_recovery.py -v
+      - name: Exercise native launchd with a synthetic host
+        env:
+          TELYND_DISPOSABLE_MACOS: '1'
+        run: bash tests/macos-launchd.sh
       - name: Build and verify app bundle
         run: bash build.sh
       - name: Validate signing transport without credentials
