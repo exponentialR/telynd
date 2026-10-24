@@ -3,6 +3,9 @@
 telynd_ssh_policy() {
   local trust=$1 identity=$2
   case "$trust" in ask|yes) ;; *) return 2;; esac
+  # SSH parses -o using configuration syntax, in addition to shell argv rules.
+  local quoted_identity=${identity//\\/\\\\}
+  quoted_identity=${quoted_identity//\"/\\\"}
   telynd_ssh_options=(
     -o "StrictHostKeyChecking=$trust"
     -o ForwardAgent=no -o ForwardX11=no -o ForwardX11Trusted=no
@@ -11,6 +14,6 @@ telynd_ssh_policy() {
     -o ForkAfterAuthentication=no
     -o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=2
     -o IgnoreUnknown=UseKeychain -o UseKeychain=yes -o AddKeysToAgent=yes
-    -o IdentitiesOnly=yes -o "IdentityFile=$identity"
+    -o IdentitiesOnly=yes -o "IdentityFile=\"$quoted_identity\""
   )
 }

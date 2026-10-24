@@ -2,14 +2,6 @@ import AppKit
 import SwiftUI
 import TelyndCore
 
-struct HostObservation {
-    var busy = false
-    var checkedAt: Date?
-    var ssh: SSHResult?
-    var report: ReadinessReport?
-    var note = "Not checked. Google session availability is unknown."
-}
-
 @MainActor final class AppStore: ObservableObject {
     @Published var desktops: [Desktop] = []
     @Published var preferences = Preferences()
@@ -17,7 +9,8 @@ struct HostObservation {
     @Published var profileProblem: String?
     @Published var error: String?
     @Published var showGuide = false
-    @Published var observations: [UUID: HostObservation] = [:]
+    @Published private var hostChecks = HostChecks()
+    var observations: [UUID: HostObservation] { hostChecks.observations }
     @Published var operationNotes: [UUID: String] = [:]
     @Published var recoveryDesktop: Desktop?
     @Published var writeLocked = false
@@ -60,7 +53,7 @@ struct HostObservation {
         if let i = updated.firstIndex(where: { $0.id == desktop.id }) { updated[i] = desktop } else { updated.append(desktop) }
         do {
             try configuration.saveDesktops(updated)
-            if let old = desktops.first(where: { $0.id == desktop.id }), old.target != desktop.target || old.identityPath != desktop.identityPath { observations[desktop.id] = nil; operationNotes[desktop.id] = nil }
+            if let old = desktops.first(where: { $0.id == desktop.id }), old.target != desktop.target || old.identityPath != desktop.identityPath { hostChecks.invalidate(desktop.id); operationNotes[desktop.id] = nil }
             desktops = updated; return true
         }
         catch { self.error = error.localizedDescription; return false }
@@ -127,16 +120,19 @@ struct HostObservation {
         if recover && !confirm("Recover \(desktop.name)?", "This asks the installed helper to start this account’s Chrome service only if stopped or failed. Active, disabled and transitioning services are left alone.") { return }
         let identity = desktop.identityPath ?? defaultIdentity
         guard InputValidation.identityPath(identity) else { error = "Choose an absolute SSH private-key path."; return }
-        observations[desktop.id] = HostObservation(busy: true, note: recover ? "Checking whether recovery is needed…" : "Checking readiness without changing the host…")
+        guard let request = hostChecks.begin(desktop.id, recovering: recover) else { return }
         let script = resources.appendingPathComponent("remote-check.sh")
         DispatchQueue.global(qos: .userInitiated).async {
             let result = Self.execute("/usr/bin/ssh", args: SSHPolicy.readinessArguments(identity: identity, target: target, command: "bash -s -- \(recover ? "recover" : "check")"), input: script)
             DispatchQueue.main.async {
-                guard let current = self.desktops.first(where: { $0.id == desktop.id }), current.target == target, (current.identityPath ?? self.defaultIdentity) == identity else { self.observations[desktop.id] = nil; return }
+                guard let current = self.desktops.first(where: { $0.id == desktop.id }), current.target == target, (current.identityPath ?? self.defaultIdentity) == identity else {
+                    self.hostChecks.complete(desktop.id, request: request, observation: nil)
+                    return
+                }
                 let ssh = SSHResult(code: result.code, output: result.output)
                 let report = ReadinessReport(output: result.output)
                 let authenticated = report.accepts(exitCode: result.code, recoveryRequested: recover)
-                self.observations[desktop.id] = HostObservation(checkedAt: Date(), ssh: authenticated ? .ready : ssh, report: authenticated ? report : nil, note: authenticated ? (recover && result.code != 0 ? "Recovery did not complete. Recheck readiness; no rollback is assumed." : "Readiness checked. Google session availability remains unknown.") : ssh.guidance)
+                self.hostChecks.complete(desktop.id, request: request, observation: HostObservation(checkedAt: Date(), ssh: authenticated ? .ready : ssh, report: authenticated ? report : nil, note: authenticated ? (recover && result.code != 0 ? "Recovery did not complete. Recheck readiness; no rollback is assumed." : "Readiness checked. Google session availability remains unknown.") : ssh.guidance))
             }
         }
     }

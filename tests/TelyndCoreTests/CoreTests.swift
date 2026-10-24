@@ -158,4 +158,12 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(fields["permitlocalcommand"], "no")
     }
 
+    func testReadinessSSHIdentitySurvivesConfigurationParsing() {
+        for identity in ["/tmp/telynd key", "/tmp/key\"quote", "/tmp/key'quote", "/tmp/key\\slash", "/tmp/key\tname", "/tmp/key # comment", "/tmp/key\\\" combination"] {
+            let result = ProcessRunner.run("/usr/bin/ssh", arguments: ["-G", "-F", "/dev/null"] + SSHPolicy.readinessArguments(identity: identity, target: "reader@fixture.example", command: "true"))
+            XCTAssertEqual(result.code, 0, "\(identity): \(result.output)")
+            XCTAssertTrue(result.output.components(separatedBy: "\n").contains("identityfile \(identity)"), result.output)
+        }
+    }
+
 }

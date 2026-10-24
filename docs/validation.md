@@ -6,8 +6,8 @@ users and does not establish usability timings or a live Google connection.
 
 ## Automated checks
 
-Local security-update results: 15 Swift tests passed; Python discovers 25 tests
-(24 passed and one flock test skipped on macOS). Linux runs all 25 and the
+Local security-update results: 20 Swift tests passed; Python discovers 26 tests
+(25 passed and one flock test skipped on macOS). Linux runs all 26 and the
 systemd integration.
 
 - Swift core tests cover connection-only and legacy models, strict supported
@@ -34,6 +34,14 @@ systemd integration.
   defaults. Both Swift readiness and shell actions override host trust,
   forwarding, local commands and multiplexing. Authorisation fixtures verify
   first-contact prompting and a subsequent strict fresh connection.
+  Swift and shell policy tests also pass paths containing spaces, quotes,
+  backslashes, tabs and comment characters through the real offline SSH parser,
+  checking that the selected identity is preserved.
+- Deterministic host-check state tests deliver superseded completions while a
+  newer request is busy and after it has completed. They also cover returning
+  to the original target, discarding the current request, retry and independent
+  desktops. These exercise the state component used by AppStore without live
+  SSH or timing-dependent sleeps.
 - Release tests reject off-main commits, moved tag objects and insufficient
   protection. Archive tests reject traversal, links, duplicate or extra files,
   resource changes, preview metadata and excessive size. They use synthetic
@@ -92,6 +100,14 @@ settings start the guide; completed fixtures exercise relaunch. Do not publish
 real Chrome profile data or screenshots containing personal host details.
 
 ## Review corrections
+
+A further pre-merge pass found unescaped `IdentityFile` configuration values
+and a late-completion race after target/key edits. Both Swift and shell policy
+now quote and escape the path for SSH configuration syntax. AppStore owns a
+request-aware host-check state component: saved target/key edits invalidate the
+old request, and only the current request may publish or clear its observation.
+Matching target/key strings alone cannot accept an older result after an
+A-to-B-to-A edit.
 
 The security review identified four additional issues: writable directory
 ancestors could permit replacement of a root-executed helper; initial
