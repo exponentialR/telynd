@@ -1,5 +1,57 @@
 # Onboarding validation record
 
+## Computer rows and remembered accounts, 24 October 2026
+
+Source `9a61dbd916935c47e7643365cfea7b945682a8cb` replaces dashboard cards
+with compact computer rows, a toolbar search and proportionate Connect buttons.
+Each row shows its saved browser account. Editing, details and optional recovery
+are available from its options menu. The editor and guide scroll their content
+while keeping their actions visible. There is no global account selector.
+
+Each computer stores a Chrome profile directory and email label. New computers
+use the sole available profile automatically; several profiles require a choice
+once during setup. Missing directories or changed email labels refuse launch
+instead of selecting another profile, even one carrying the same email. Account
+or destination changes clear previous connection-launch/confirmation evidence.
+The account label comes from local Chrome metadata and does not establish the
+Google identity active in a web tab. The URL reader is unchanged and cannot
+infer that identity.
+
+The one-time migration copies the previous global association onto existing
+computers and setup drafts, preserving SSH settings, IDs, URLs and prior
+connection evidence. A persisted migration marker prevents later drafts from
+inheriting the obsolete preference. Preferences advance to schema 2, so older
+builds refuse them instead of ignoring per-computer associations. A failed
+migration locks writes and reports the error.
+
+Verification: 48 Swift tests passed, including nine new tests for per-computer
+launch arguments, missing/changed/ambiguous profiles, private persistence,
+account-change evidence invalidation, one-time migration and refusal of unsafe
+legacy data. The capture request tests also reject a result after its draft's
+account changes. A release build and its ad-hoc signature passed locally.
+
+Native synthetic checks covered two profile associations across multiple
+computers, repairing an unavailable account without changing other computers,
+adding a computer, searching by account, a simulated Connect, Back/close/reopen
+of setup with its account and link intact, light/dark appearance, and scrolling
+an editor with both manual-link and recovery sections expanded. Fixtures did
+not contact Chrome or a host. The final screenshots below contain only
+synthetic computers and accounts.
+
+The user's development app was replaced in place after a private settings
+backup. Read-back confirmed that migration added only each computer's previous
+account association; connection and SSH fields and previous timestamps were
+preserved, and settings retained owner-only permissions. Its read-only host
+check reported SSH verified, Google service active and recovery timer active.
+No host settings or services were changed. Two different real Google account
+sessions were not exercised; account-routing arguments and UI persistence were
+verified with controlled profiles. The earlier real Chrome capture/connection
+evidence below remains a separate observation.
+
+![Computer rows with synthetic personal and university accounts in light appearance](images/per-computer-light.png)
+
+![The same synthetic computers in dark appearance](images/per-computer-dark.png)
+
 ## Capture and setup-resume review corrections, 24 October 2026
 
 Source `adcb6f954eb5d1ae4c48256bae1310c46a83f5e9` corrects two reproduced
