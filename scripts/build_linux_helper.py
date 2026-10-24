@@ -15,7 +15,7 @@ SOURCES = {
     'usr/share/doc/telynd-setup/copyright': ('LICENSE', 0o644),
 }
 CONTROL = b'''Package: telynd-setup
-Version: 0.2.1
+Version: 0.2.2
 Section: net
 Priority: optional
 Architecture: all

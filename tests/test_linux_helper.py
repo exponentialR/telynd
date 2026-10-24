@@ -143,13 +143,18 @@ class HelperTest(unittest.TestCase):
             link = root/'link'; link.symlink_to(original)
             with self.assertRaises(OSError): HELPER.save_card(link, 'must-not-write')
             self.assertEqual(original.read_text(), 'unchanged')
+            hardlink = root/'hardlink'; os.link(original, hardlink)
+            original_mode = original.stat().st_mode
+            with self.assertRaises(OSError): HELPER.save_card(hardlink, 'must-not-truncate')
+            self.assertEqual(original.read_text(), 'unchanged')
+            self.assertEqual(original.stat().st_mode, original_mode)
             if hasattr(os, 'mkfifo'):
                 fifo = root/'pipe'; os.mkfifo(fifo)
                 with self.assertRaises(OSError): HELPER.save_card(fifo, 'must-not-block')
 
     def test_package_matches_reviewable_sources_and_has_no_install_time_ssh_action(self):
         package = BUILD.package()
-        self.assertEqual(package, (ROOT/'assets/telynd-setup_0.2.1_all.deb').read_bytes())
+        self.assertEqual(package, (ROOT/'assets/telynd-setup_0.2.2_all.deb').read_bytes())
         self.assertTrue(package.startswith(b'!<arch>\n'))
         offset = 8; members = {}
         while offset < len(package):

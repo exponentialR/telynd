@@ -138,6 +138,15 @@ import CryptoKit
     @discardableResult func updatePreferences(_ update: (inout Preferences) -> Void) -> Bool {
         guard !writeLocked else { error = ConfigurationError.writeLocked.localizedDescription; return false }
         var next = preferences; update(&next)
+        // A guide in another window can autosave after removal. Do not retain
+        // its old connection details or allow them to reappear on relaunch.
+        let unavailable = Set(next.removedDesktops.map(\.id)).union(permanentlyDeletedIDs)
+        if let draft = next.guideDraft, unavailable.contains(draft.id) {
+            next.guideDraft = nil; next.guideStep = .computer
+        }
+        if let id = next.guideDesktopID, unavailable.contains(id) {
+            next.guideDesktopID = nil; next.guideStep = .computer
+        }
         do { try configuration.savePreferences(next); preferences = next; return true }
         catch { self.error = error.localizedDescription; return false }
     }

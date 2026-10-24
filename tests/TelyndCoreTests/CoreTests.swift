@@ -2,6 +2,17 @@ import XCTest
 @testable import TelyndCore
 
 final class CoreTests: XCTestCase {
+    func testFreshSSHIdentityAndNetworkWarningsOverrideHistoricalSetupReceipts() {
+        for previous in ["permissions_need_attention", "verification_unavailable", "ssh_ready"] {
+            for result: SSHResult in [.identityChanged, .identityNeedsVerification, .unreachable, .timedOut] {
+                XCTAssertEqual(result.setupGuidance(previousResult: previous), result.guidance)
+            }
+            XCTAssertNil(SSHResult.ready.setupGuidance(previousResult: previous))
+        }
+        XCTAssertTrue(SSHResult.authenticationRequired.setupGuidance(previousResult: "permissions_need_attention")!.contains("folder permissions"))
+        XCTAssertTrue(SSHResult.failed.setupGuidance(previousResult: "verification_unavailable")!.contains("password-free login failed"))
+        XCTAssertEqual(SSHResult.authenticationRequired.setupGuidance(previousResult: nil), SSHResult.authenticationRequired.guidance)
+    }
     func testOnlySupportedGoogleURLsAreAccepted() {
         XCTAssertTrue(InputValidation.chromeURL(InputValidation.devicePicker))
         XCTAssertFalse(InputValidation.target("reader@host.example\n"))

@@ -3,6 +3,29 @@ import TelyndCore
 @testable import Telynd
 
 final class RemovalTests: XCTestCase {
+    func testDelayedGuideAutosaveCannotRetainARemovedOrPermanentlyDeletedComputer() async throws {
+        try await setup { configuration, _ in
+            let computer = Desktop(name: "Deleted", target: "reader@host.example")
+            try configuration.saveDesktops([computer])
+            let store = AppStore(configuration: configuration)
+            XCTAssertTrue(store.remove(computer.id))
+            for permanentlyDelete in [false, true] {
+                if permanentlyDelete { XCTAssertTrue(store.permanentlyDelete(computer.id)) }
+                // Another open guide can still have the old draft in local state.
+                XCTAssertTrue(store.updatePreferences {
+                    $0.guideDraft = computer
+                    $0.guideDesktopID = computer.id
+                    $0.guideStep = .connect
+                })
+                let reopened = AppStore(configuration: configuration)
+                XCTAssertNil(reopened.preferences.guideDraft)
+                XCTAssertNil(reopened.preferences.guideDesktopID)
+                XCTAssertEqual(reopened.preferences.guideStep, .computer)
+                XCTAssertTrue(reopened.desktops.isEmpty)
+                XCTAssertEqual(reopened.preferences.removedDesktops.isEmpty, permanentlyDelete)
+            }
+        }
+    }
     private func setup(_ action: @MainActor (ConfigurationStore, URL) throws -> Void) async throws {
         try await MainActor.run {
             let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)

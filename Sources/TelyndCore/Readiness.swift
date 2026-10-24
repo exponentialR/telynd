@@ -72,4 +72,18 @@ public enum SSHResult: Equatable {
         case .failed: return "SSH verification did not finish successfully. Retry or use SSH Terminal for details."
         }
     }
+    public func setupGuidance(previousResult: String?) -> String? {
+        guard self != .ready else { return nil }
+        // Historical approval receipts can explain an authentication failure,
+        // but must never hide a current identity or network warning.
+        if self == .authenticationRequired || self == .failed {
+            if previousResult == "permissions_need_attention" {
+                return "Linux folder permissions prevent key login. Open Telynd Setup on Linux, choose Check again and review Fix folder permissions before trying approval again."
+            }
+            if previousResult == "verification_unavailable" {
+                return "Authorisation ran, but password-free login failed. Open Telynd Setup on Linux and choose Check again. Resolve any folder-permission warning; if none appears, ask the administrator to review SSH policy."
+            }
+        }
+        return guidance
+    }
 }

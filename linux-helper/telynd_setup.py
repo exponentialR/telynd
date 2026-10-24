@@ -149,8 +149,8 @@ def save_card(destination, value):
     descriptor = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_NONBLOCK | os.O_NOFOLLOW, 0o600)
     try:
         attributes = os.fstat(descriptor)
-        if not stat.S_ISREG(attributes.st_mode) or attributes.st_uid != os.getuid():
-            raise OSError('Choose a regular file owned by your desktop account.')
+        if not stat.S_ISREG(attributes.st_mode) or attributes.st_uid != os.getuid() or attributes.st_nlink != 1:
+            raise OSError('Choose a regular file owned by your desktop account with no hard links.')
         os.fchmod(descriptor, 0o600)
         os.ftruncate(descriptor, 0)
         with os.fdopen(descriptor, 'w', closefd=False) as stream:

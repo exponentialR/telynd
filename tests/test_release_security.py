@@ -138,7 +138,7 @@ class ArtifactTest(unittest.TestCase):
                 files,revision=self.fixture(root,git)
                 if kind=='script': files[ARTIFACT.PREFIX+'Resources/setup-remote.sh']=b'tampered'
                 elif kind=='setup_page': files[ARTIFACT.PREFIX+'Resources/chrome-setup.html']=b'<script>tampered</script>'
-                elif kind=='linux_helper': files[ARTIFACT.PREFIX+'Resources/telynd-setup_0.2.1_all.deb']=b'tampered'
+                elif kind=='linux_helper': files[ARTIFACT.PREFIX+'Resources/telynd-setup_0.2.2_all.deb']=b'tampered'
                 else:
                     info=plistlib.loads(files[ARTIFACT.PREFIX+'Info.plist'])
                     if kind=='version': info['CFBundleShortVersionString']='9.9.9'
