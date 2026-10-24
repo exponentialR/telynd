@@ -211,7 +211,7 @@ struct DesktopCard: View {
             }.frame(minHeight: 62, alignment: .top)
             Button { store.connect(desktop) } label: {
                 Label("Open remote desktop", systemImage: "arrow.up.right.square").frame(maxWidth: .infinity).padding(.vertical, 4)
-            }.buttonStyle(.borderedProminent).controlSize(.large)
+            }.buttonStyle(TelyndPrimaryButtonStyle())
             HStack {
                 Button("Check status") { store.check(desktop) }
                 Button("Recover if stopped") { store.check(desktop, recover: true) }
@@ -226,6 +226,22 @@ struct DesktopCard: View {
         .padding(24).frame(maxWidth: .infinity, alignment: .topLeading)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 20))
         .overlay(RoundedRectangle(cornerRadius: 20).stroke(.primary.opacity(0.08)))
+    }
+}
+
+struct TelyndPrimaryButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.body.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(
+                Color(red: 18.0 / 255, green: 92.0 / 255, blue: 1)
+                    .opacity(configuration.isPressed ? 0.82 : 1),
+                in: RoundedRectangle(cornerRadius: 10)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 10))
     }
 }
 
@@ -273,7 +289,7 @@ struct ContentView: View {
                         Image(systemName: "desktopcomputer").font(.system(size: 42)).foregroundStyle(.secondary)
                         Text("Add your first desktop").font(.title2.weight(.semibold))
                         Text("Save its SSH address and choose the Chrome profile you use for remote access.").foregroundStyle(.secondary)
-                        Button("Add desktop") { editing = Desktop(name: "", target: "") }.buttonStyle(.borderedProminent)
+                        Button("Add desktop") { editing = Desktop(name: "", target: "") }.buttonStyle(TelyndPrimaryButtonStyle())
                     }.frame(maxWidth: .infinity).padding(40)
                 }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 340), alignment: .top)], alignment: .leading, spacing: 22) {
