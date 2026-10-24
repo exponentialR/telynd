@@ -14,10 +14,14 @@ Open a computer's **… → Recovery settings…** and select **Linux**. Telynd
 checks previously saved access automatically when this screen opens. New setup
 has three steps:
 
-1. Enter the **Linux username** and **Computer address**, or use **Paste address**
+1. Enter the **Linux username** and **Computer address**, or use **Paste SSH address**
    with `user@computer` or a simple `ssh user@computer` command. No SSH options,
    custom ports or shell commands are accepted by that paste action. The address
    must be reachable from this Mac, through the local network or an existing VPN.
+   The username is just the login name, such as `alex`, without `@computer`.
+   The computer address is one reachable IP address or network name, entered
+   separately. Labels stay visible while typing, and the form explains a full
+   SSH address entered accidentally into the username field.
 2. Choose **Set up SSH access…**. Telynd creates a key pair if both files are
    absent, or reuses the selected pair. New connections normally use
    `~/.ssh/telynd_ed25519`; existing SSH settings retain their previous key.
@@ -41,8 +45,18 @@ address from a Google connection URL, or grant initial access without an existin
 login method. The in-app help explains Ubuntu's Secure Shell settings and links
 [Ubuntu's OpenSSH guide](https://ubuntu.com/server/docs/how-to/security/openssh-server/).
 It also provides fixed read-only commands to show the remote username,
-addresses and public host-key fingerprints. Run them on that computer through
-an existing Google session or physical access. If password login is disabled
+addresses and public host-key fingerprints. **Copy Linux details command**
+provides one command to run in a Terminal on Linux through an existing Google
+session or physical access. It prints a labelled username and ready-to-copy
+`ssh user@address` lines. If the Tailscale CLI reports an IPv4 address, that
+route is shown separately; use it only when both devices already share that
+Tailscale network. See [Tailscale's connectivity guide](https://tailscale.com/docs/how-to/connect-to-devices).
+The other candidates can include virtual interfaces and are not proof of
+reachability. Choose the network shared with this Mac, or ask the administrator.
+Copy just one SSH line, then click **Paste SSH address** to fill both fields.
+IPv6 is omitted because this SSH form does not support it. The separate SHA256
+fingerprints identify the server: compare the matching key type during the SSH
+trust prompt; do not put them into either address field. If password login is disabled
 and no key already works, ask the administrator to authorise this Mac. Telynd
 does not enable password authentication or open firewall/router ports.
 

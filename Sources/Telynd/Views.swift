@@ -551,15 +551,7 @@ struct RecoverySheet: View {
     var canInstall: Bool {
         valid && accessReady && observed.report?.supported == true && observed.report?.values["service_loaded"] == "loaded" && observed.report?.values["missing_tools"] == "" && !observed.busy && waitingAction == nil
     }
-    var discoveryCommands: String {
-        """
-        whoami
-        hostname -I
-        for key in /etc/ssh/ssh_host_*_key.pub; do
-          [ ! -f "$key" ] || ssh-keygen -lf "$key"
-        done
-        """
-    }
+    var discoveryCommands: String { SSHDiscovery.command }
     func saveDetails() -> Bool {
         var value = current; value.hostPlatform = platform
         if platform.usesSSHRecovery {
@@ -626,26 +618,42 @@ struct RecoverySheet: View {
                 HStack {
                     Text("1. Find the Linux computer").font(.headline)
                     Spacer()
-                    Button("Paste address") {
+                    Button("Paste SSH address") {
                         if let value = SSHAddress.pasted(NSPasteboard.general.string(forType: .string)) { address = value; addressError = nil }
                         else { addressError = "Copy user@computer or a simple ssh user@computer login command first. SSH options and custom ports are not supported here." }
                     }.font(.caption)
                 }
-                HStack {
-                    TextField("Linux username", text: $address.username).accessibilityLabel("Linux username")
-                    TextField("Computer address", text: $address.host).accessibilityLabel("Computer address")
+                HStack(alignment: .top, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Linux username").font(.caption.weight(.medium))
+                        TextField("For example: alex", text: $address.username).accessibilityLabel("Linux username")
+                        Text("Login name only. Leave out @ and the computer name.").font(.caption).foregroundStyle(.secondary)
+                    }
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Computer address").font(.caption.weight(.medium))
+                        TextField("One IP address or network name", text: $address.host).accessibilityLabel("Computer address")
+                        Text("An address this Mac can reach, using your shared network or existing VPN.").font(.caption).foregroundStyle(.secondary)
+                    }
                 }
-                Text("Use its Linux login name and an address reachable from this Mac, such as a local address or an existing VPN address.").font(.caption).foregroundStyle(.secondary)
+                if address.username.contains("@") {
+                    Text("The first field contains a full SSH address. Enter only the part before @ as the username. You can also copy the full address and choose Paste SSH address to fill both fields.").font(.callout).foregroundStyle(.secondary)
+                }
+                Text("Or copy one ssh user@address line and choose Paste SSH address. Telynd fills both fields for you.").font(.caption).foregroundStyle(.secondary)
                 if let addressError { Text(addressError).font(.caption).foregroundStyle(.red) }
                 DisclosureGroup("Where do I find these? What if SSH is not enabled?") {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("Open that computer through Google Remote Desktop while it is working, or use it in person. Telynd cannot enable SSH on a computer it cannot already reach.")
-                        Text("On Ubuntu, enable Secure Shell in System settings. Its SSH login command can be copied into Paste address above. If Secure Shell is missing, install OpenSSH Server using Ubuntu’s guide. If password login is disabled and no existing key works, an administrator must authorise this Mac on that computer.")
+                        Text("1. Open a Terminal on the Linux computer, through your working Google remote session or in person. These commands run on Linux, not on this Mac.")
+                        Text("2. Copy the Linux details command below, paste it into that Terminal and press Enter. It only reads connection details; it does not enable SSH or change that computer.")
+                        Button("Copy Linux details command") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(discoveryCommands, forType: .string) }
+                        Text("3. If both devices already use the same Tailscale network, copy the ssh line under SSH via Tailscale. Otherwise choose an address for a network shared with this Mac. Other addresses can include virtual interfaces; ask the computer’s administrator if you are unsure which network is reachable.")
+                        Link("Find a Tailscale device’s address", destination: URL(string: "https://tailscale.com/docs/concepts/ip-and-dns-addresses")!)
+                        Text("4. Return here and choose Paste SSH address. Copy just one ssh user@address line, without the Terminal prompt or the rest of the output.")
+                        DisclosureGroup("View the Linux details command") {
+                            Text(discoveryCommands).font(.system(.caption, design: .monospaced)).textSelection(.enabled).padding(.top, 8)
+                        }
+                        Text("SSH must be enabled on Linux. On Ubuntu, look for Secure Shell in System settings. Its displayed SSH login command also works with Paste SSH address. If the setting is missing, use Ubuntu’s OpenSSH Server guide. If password login is disabled and no existing key works, an administrator must authorise this Mac on that computer.")
                         Link("Ubuntu’s OpenSSH setup guide", destination: URL(string: "https://ubuntu.com/server/docs/how-to/security/openssh-server/")!)
-                        Text("In a Terminal on the Linux computer, these read-only commands show its login name, addresses and public SSH fingerprints. They do not change that computer:")
-                        Text(discoveryCommands).font(.system(.caption, design: .monospaced)).textSelection(.enabled)
-                        Button("Copy discovery commands") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(discoveryCommands, forType: .string) }
-                        Text("Compare the SSH fingerprint shown during setup against the matching fingerprint from that computer, or ask its administrator for a trusted record.")
+                        Text("The SHA256 lines are the computer’s SSH identity fingerprints. Do not paste them into either field. When SSH asks you to trust the computer, compare its fingerprint with the matching key type in the Linux output, or with a trusted record from its administrator.")
                     }.font(.callout).foregroundStyle(.secondary).padding(.top, 10)
                 }.font(.callout)
             }

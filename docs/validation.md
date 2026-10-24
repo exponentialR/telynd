@@ -1,5 +1,31 @@
 # Onboarding validation record
 
+## Clear Linux login and address instructions, 24 October 2026
+
+Linux recovery now keeps separate username and computer-address labels visible
+while typing. The username hint explicitly excludes the Terminal prompt and
+`@computer`. A full address in that field gets neutral corrective guidance.
+**Paste SSH address** states that it splits one simple SSH login line into both
+fields. The help now explains where to run the read-only command and which part
+of its output to copy. Command output labels the login, separates a reported
+Tailscale address from other IPv4 candidates, suppresses duplicate VPN entries
+and omits unsupported IPv6 targets. It prints ready-to-paste SSH lines and keeps
+public identity fingerprints in their own section. No address candidate is
+assumed reachable, and fingerprints are never treated as credentials or trusted
+automatically.
+
+All 65 Swift tests passed. Two new command tests execute the copied POSIX shell
+text against controlled username/address/Tailscale/public-key tools. They check
+labelled output, VPN separation, failed Tailscale fallback, IPv6 omission,
+round-tripping each SSH line through the existing strict paste parser, and
+rejection of multi-address output as one destination. No real SSH authorisation
+or recovery action ran during these checks. A separate read-only support check
+confirmed TCP/22 reachability and a public ED25519 fingerprint matching the
+user's trusted Linux console output. It did not authenticate or modify trust.
+The user's existing setup window was kept open; the revised help is built for
+the next launch, without discarding current setup progress. Private addresses,
+account names and fingerprints are omitted from this record.
+
 ## Visible recovery during Add computer, 24 October 2026
 
 The Add computer editor now has two visible steps: **Connection → Recovery
