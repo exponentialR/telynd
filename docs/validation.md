@@ -4,9 +4,10 @@
 
 Connect now requests a separate Chrome application-mode window with the saved
 account and direct connection link. **Open in Chrome tab** is available from
-its options menu; both routes retain account and URL validation. All 77 Swift
+its options menu; both routes retain account and URL validation. All 78 Swift
 tests passed after updating window/tab expectations and checking that both
-modes refuse missing or changed profiles. The release build and ad-hoc bundle
+modes refuse missing or changed profiles. A further review added refusal of
+stale account/link actions and write-locked settings before any launch. The release build and ad-hoc bundle
 signature passed. Native checks verified the running app's window explanation
 and browser-tab fallback; saved desktop and preference files were unchanged.
 

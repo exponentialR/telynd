@@ -216,7 +216,11 @@ import CryptoKit
         } catch { self.error = error.localizedDescription }
     }
     func connect(_ desktop: Desktop, presentation: ChromeLaunch.Presentation = .window) {
-        guard desktops.contains(where: { $0.id == desktop.id }) else { error = "Restore this computer before connecting."; return }
+        guard !writeLocked else { error = ConfigurationError.writeLocked.localizedDescription; return }
+        guard let saved = desktops.first(where: { $0.id == desktop.id }) else { error = "Restore this computer before connecting."; return }
+        guard saved.chromeProfile == desktop.chromeProfile, saved.chromeURL == desktop.chromeURL else {
+            error = "This computer’s account or connection link changed. Try Connect again from its current row."; return
+        }
         guard desktop.hasDirectConnection else { error = "Save this computer’s individual connection link before connecting. Choose Edit, then Choose computer in Chrome and select the computer in Google’s list."; return }
         openChrome(desktop, presentation: presentation) { [weak self] in
             guard let self else { return }

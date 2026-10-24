@@ -66,4 +66,5 @@ separation between sessions before release. An alternative remoting engine
 would also require its own host setup and security design.
 
 The temporary lab apps were quit, unregistered and moved to recoverable Trash.
-Only the canonical Telynd app remains active. All 77 Swift tests passed locally.
+Only the canonical Telynd app remains active. All 78 Swift tests passed locally, including rejection of stale account/link
+actions and locked settings in both launch modes.

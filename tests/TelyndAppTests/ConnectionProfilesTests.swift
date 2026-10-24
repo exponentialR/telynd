@@ -101,4 +101,33 @@ final class AppConnectionProfilesTests: XCTestCase {
             XCTAssertNotNil(store.error)
         }
     }
+    func testBothLaunchModesRejectOldAccountOrLinkAndLockedSettings() async throws {
+        try await MainActor.run {
+            let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            defer { try? FileManager.default.removeItem(at: directory) }
+            let configuration = ConfigurationStore(directory: directory)
+            try metadata(["Profile 1": "personal@example.test", "Profile 2": "work@example.test"], in: configuration)
+            let store = AppStore(configuration: configuration)
+            for changeAccount in [true, false] {
+                var old = Desktop(name: "Computer", chromeURL: "https://remotedesktop.google.com/access/session/11111111-1111-4111-8111-111111111111")
+                old.chromeProfile = ChromeProfileReference(directory: "Profile 1", email: "personal@example.test")
+                XCTAssertTrue(store.save(old))
+                var current = old
+                if changeAccount { current.chromeProfile = ChromeProfileReference(directory: "Profile 2", email: "work@example.test") }
+                else { current.chromeURL = "https://remotedesktop.google.com/access/session/22222222-2222-4222-8222-222222222222" }
+                XCTAssertTrue(store.save(current))
+                for mode in [ChromeLaunch.Presentation.window, .tab] {
+                    store.connect(old, presentation: mode)
+                    XCTAssertNil(store.desktops.first(where: { $0.id == old.id })?.lastLaunch)
+                    XCTAssertNotNil(store.error)
+                    store.writeLocked = true
+                    store.connect(current, presentation: mode)
+                    XCTAssertNil(store.desktops.first(where: { $0.id == old.id })?.lastLaunch)
+                    store.writeLocked = false
+                }
+                store.connect(current)
+                XCTAssertNotNil(store.desktops.first(where: { $0.id == old.id })?.lastLaunch)
+            }
+        }
+    }
 }
