@@ -16,7 +16,7 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
 <key>CFBundleExecutable</key><string>Telynd</string>
-<key>CFBundleIdentifier</key><string>io.github.exponentialr.telynd</string>
+<key>CFBundleIdentifier</key><string>com.samueladebayo.telynd</string>
 <key>CFBundleName</key><string>Telynd</string>
 <key>CFBundleDisplayName</key><string>Telynd</string>
 <key>CFBundleIconFile</key><string>Telynd</string>
