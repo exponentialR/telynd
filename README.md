@@ -61,7 +61,7 @@ Linux SSH access and recovery. Mac/Windows kits run locally on their hosts. Tail
 | `scripts/macos-recovery.sh` | Host-local signed-in Mac agent and bounded recovery |
 | `scripts/windows-recovery.ps1` | Host-local native crash policy with verified restoration |
 | `scripts/WindowsServicePolicy.cs` | Windows SCM policy/security adapter |
-| `tests/` | Swift core tests, shell protocol/decision fixtures and disposable Linux integration |
+| `tests/` | Swift core tests, platform fixtures and disposable Linux/launchd/SCM integration |
 | `build.sh` | Build and assemble a locally signed ARM64 app |
 | `scripts/release-macos.sh` | Credential-gated signing, notarisation and versioned release assets |
 

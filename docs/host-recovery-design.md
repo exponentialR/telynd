@@ -39,7 +39,8 @@ Mac/Windows export JSON schema 1: `desktopID`, actual `platform`, `osVersion`,
 `architecture`, Unix UTC `checkedAt`, `service`, `enablement`, `installation`,
 `recovery`, `permissions`, and action `outcome`. `LocalHostReport` bounds size,
 validates enumerations, rejects a mismatched computer/selected OS and future
-timestamps. Windows PowerShell UTF-16 output is decoded before JSON validation.
+timestamps. The importer opens a bounded regular file without following links;
+named pipes, directories and other special files are refused before reading. Windows PowerShell UTF-16 output is decoded before JSON validation.
 
 Imported reports are user-supplied data, not authenticated identity or live
 status. They cannot supply commands or enable Mac-to-host mutations. The UI
@@ -59,7 +60,8 @@ require review. A new script revision requires explicit verified uninstall.
 The agent checks Google's root-owned installation, signed Google team identity,
 enablement marker and launchd disablement before every start. Google config and
 credentials are never read. Deliberately disabled, running, transitioning,
-missing-session and throttled jobs are left alone. A stale mutation lock fails
+missing-session and throttled jobs are left alone. Disabling the agent persists across logins; explicit installation re-enables it.
+A stale mutation lock fails
 closed; review it manually after interruption. Telynd does not bypass TCC or SIP.
 
 Windows checks the fixed `chromoting` service, signed Google executable under

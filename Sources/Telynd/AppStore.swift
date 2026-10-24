@@ -206,14 +206,13 @@ import CryptoKit
         panel.title = "Import a report exported by this computer’s recovery kit"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
-            let handle = try FileHandle(forReadingFrom: url); defer { try? handle.close() }
-            let data = try handle.read(upToCount: 32769) ?? Data()
+            let data = try LocalHostReport.read(from: url)
             guard let current = desktops.first(where: { $0.id == desktop.id }), current.hostPlatform == desktop.hostPlatform,
                   current.target == desktop.target, current.identityPath == desktop.identityPath else { throw HostReportError.mismatch }
             let report = try LocalHostReport.parse(data, desktop: desktop).readiness
             hostChecks.invalidate(desktop.id)
             if let request = hostChecks.begin(desktop.id, recovering: false) {
-                hostChecks.complete(desktop.id, request: request, observation: HostObservation(checkedAt: report.checkedAt, report: report, note: "Imported host snapshot supplied by you. Host identity and current state have not been verified over a live connection. Privacy permissions and Google session availability remain unknown."))
+                hostChecks.complete(desktop.id, request: request, observation: HostObservation(checkedAt: report.checkedAt, report: report, note: "Imported snapshot supplied by you. Host identity and current state have not been checked live."))
             }
         } catch { self.error = error.localizedDescription }
     }

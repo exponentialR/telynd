@@ -32,7 +32,8 @@ permissions. Review Google's screen/control permissions in System Settings on
 the host. A signature or unsafe-directory error requires investigation, not
 weaker verification.
 
-Run the kit's `disable` command to unload Telynd's agent, or `uninstall` to remove
+Run the kit's `disable` command to unload Telynd's agent and keep it disabled
+across logins, or `uninstall` to remove
 verified owned components. Google remains installed. An interrupted bootstrap
 can be retried with the same kit; modified/partial files and stale locks require
 review. Do not remove a lock during an active operation. To update the helper,

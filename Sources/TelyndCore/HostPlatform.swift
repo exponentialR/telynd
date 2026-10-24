@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 public enum HostPlatform: String, Codable, CaseIterable, Identifiable, Sendable {
     case unknown, linux, macos, windows
@@ -36,6 +37,21 @@ public struct LocalHostReport: Codable, Equatable {
     public let recovery: String
     public let permissions: String
     public let outcome: String
+
+    public static func read(from url: URL) throws -> Data {
+        // Reject special files before reading; a named pipe must not hang the UI.
+        // Open nonblocking/no-follow, then inspect that exact descriptor.
+        let descriptor = open(url.path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW)
+        guard descriptor >= 0 else { throw HostReportError.invalid }
+        defer { close(descriptor) }
+        var attributes = stat()
+        guard fstat(descriptor, &attributes) == 0, (attributes.st_mode & S_IFMT) == S_IFREG,
+              attributes.st_size >= 0, attributes.st_size <= 32768 else { throw HostReportError.invalid }
+        let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: false)
+        let data = try handle.read(upToCount: 32769) ?? Data()
+        guard data.count <= 32768 else { throw HostReportError.invalid }
+        return data
+    }
 
     public static func parse(_ input: Data, desktop: Desktop, now: Date = Date()) throws -> LocalHostReport {
         guard input.count <= 32768 else { throw HostReportError.invalid }

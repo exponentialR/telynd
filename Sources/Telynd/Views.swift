@@ -59,7 +59,7 @@ struct ContentView: View {
                 }
                 VStack(alignment: .leading, spacing: 9) {
                     Label("Connect first. Recovery is optional.", systemImage: "arrow.triangle.2.circlepath").font(.headline)
-                    Text("Google Chrome Remote Desktop provides the screen connection and handles sign-in and its PIN. Optional host recovery uses platform-specific setup. A service check does not confirm a Google session.")
+                    Text("Google Chrome Remote Desktop provides the screen connection and handles sign-in and its PIN. Optional host recovery uses platform-specific setup.")
                     Text("A running service does not prove Google can connect. A sleeping PC, network fault or expired Google authorisation may need separate attention.")
                 }.font(.callout).foregroundStyle(.secondary).padding(22).frame(maxWidth: .infinity, alignment: .leading).background(.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 16))
             }.padding(30)
@@ -127,7 +127,7 @@ struct StatusDetails: View {
                     Text("Evidence: imported host snapshot · identity not verified")
                     Text("Host: \(observation.report?.values["os"] ?? "unknown") \(observation.report?.values["os_version"] ?? "")")
                     Text("Recovery scope: \(observation.report?.values["recovery_scope"] ?? "unknown")")
-                    Text("Privacy permissions: unknown — review on the host")
+                    if platform == .macos { Text("Privacy permissions: unknown — review on the host") }
                 } else if platform.usesSSHRecovery { Text("SSH: \(observation.ssh == .ready ? "access verified" : "not verified")") }
                 else { Text("Evidence: no imported host snapshot") }
                 Text("Chrome service: \(observation.report?.serviceLabel ?? "unknown")")
@@ -140,7 +140,7 @@ struct StatusDetails: View {
                     if let missing = report.values["missing_tools"], !missing.isEmpty { Text("Ask the host administrator to provide: \(missing). Recheck afterwards.") }
                     if !report.supported { Text("Keep connection-only access. Review the selected operating system and its recovery instructions.") }
                 }
-                Text(observation.note)
+                Text(observation.note).fixedSize(horizontal: false, vertical: true)
             }
         }.font(.caption).foregroundStyle(.secondary).textSelection(.enabled).accessibilityElement(children: .contain)
     }
@@ -300,7 +300,7 @@ struct RecoverySheet: View {
                     Button("Export recovery kit…") { store.exportRecoveryKit(current) }.disabled(platform != current.hostPlatform)
                     Button("Import host report…") { store.importHostReport(current) }.disabled(platform != current.hostPlatform)
                 }
-                Text("Run check, install, disable, uninstall or explicit manual recovery ON THE HOST using the kit. Import a fresh report afterwards; imported evidence does not establish current host identity or Google connectivity.").font(.caption).foregroundStyle(.secondary)
+                Text("Follow the kit’s README to check, enable or remove recovery on the remote computer. Import a fresh report after changes.").font(.caption).foregroundStyle(.secondary)
                 StatusDetails(observation: observed, now: now, platform: current.hostPlatform)
                 if let note = store.operationNotes[desktop.id] { Text(note).font(.callout).foregroundStyle(.secondary) }
             } else {
