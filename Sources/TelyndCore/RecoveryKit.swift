@@ -49,13 +49,17 @@ public enum RecoveryKit {
         minutes, at most three start attempts per 30 minutes. Google remote
         access must remain explicitly enabled. Missing privacy permissions,
         logout, power/network failures and expired Google authorisation can
-        still prevent connection. Review a stale lock after an interrupted run;
-        do not remove it while an action is running. A changed kit requires
-        verified uninstall of the old revision before installation.
+        still prevent connection. Native descriptor locking is required; older
+        Mac implementations are refused before installation. Native locks release
+        after interruption; keep operation.lock in place. A legacy directory
+        named lock requires review and must not be removed during an action.
+        A changed kit requires verified uninstall of the old revision first.
 
         Windows recovery: native service CRASH recovery only, two restart
         attempts with 60/120-second delays, then no action until its one-day
         failure-count reset. An orderly stop is NOT automatically recovered.
+        Manual recovery requires Automatic start mode. Google uses Manual to
+        deliberately stop its host; Manual and Disabled modes stay stopped.
         No background Telynd agent, scheduled task or network listener is added.
         Existing third-party failure actions are recorded and restored only if
         they still match recognised original/Telynd policy. No host restart.

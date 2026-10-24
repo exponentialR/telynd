@@ -42,8 +42,9 @@ try {
     $compiler=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
     & $compiler /nologo /target:winexe /reference:System.ServiceProcess.dll ("/out:"+$exe) $sourceFile
     Assert ($LASTEXITCODE -eq 0) 'Fixture compilation failed'
-    & sc.exe create $service binPath= ('"'+$exe+'"') start= auto | Out-Null
-    Assert ($LASTEXITCODE -eq 0) 'Fixture registration failed'
+    # Use an API rather than sc.exe's legacy native argument quoting: Windows
+    # PowerShell can otherwise strip the quotes that protect Program Files.
+    $null=New-Service -Name $service -BinaryPathName ('"'+$exe+'"') -StartupType Automatic
     Start-Service $service
     Copy-Item "$PSScriptRoot/../scripts/WindowsServicePolicy.cs" $root
     # Keep Get-ChromeHost and its security decisions intact. Only substitute
@@ -80,6 +81,10 @@ try {
         $refused=$false; try { $null=& $script -Action check -DesktopID $id } catch { $refused=$true }
         Assert $refused $message
     }
+    function Set-FixtureConfig($arguments) {
+        $result=Invoke-CimMethod -InputObject (Get-CimInstance Win32_Service -Filter "Name='TelyndRecoveryFixture'") -MethodName Change -Arguments $arguments
+        Assert ($result.ReturnValue -eq 0) 'Fixture service configuration update failed'
+    }
     foreach ($status in @('NotSigned','HashMismatch','UnknownError')) {
         $global:TelyndFixtureSignatureStatus=$status
         Assert-CheckRefused 'Invalid executable signature accepted'
@@ -89,15 +94,12 @@ try {
     $global:TelyndFixtureSignaturePublisher='Google LLC'
     # Refuse executable substitution, launchers and unexpected service accounts.
     foreach ($path in @($exe, ('"'+$root+'\other.exe"'), ('"'+$root+'\remoting_host.exe"'))) {
-        & sc.exe config $service binPath= $path | Out-Null
-        Assert ($LASTEXITCODE -eq 0) 'Fixture image update failed'
+        Set-FixtureConfig @{PathName=$path}
         Assert-CheckRefused 'Unsafe service executable accepted'
     }
-    & sc.exe config $service binPath= ('"'+$exe+'"') obj= 'NT AUTHORITY\LocalService' | Out-Null
-    Assert ($LASTEXITCODE -eq 0) 'Fixture account update failed'
+    Set-FixtureConfig @{PathName=('"'+$exe+'"');StartName='NT AUTHORITY\LocalService'}
     Assert-CheckRefused 'Unexpected service account accepted'
-    & sc.exe config $service obj= LocalSystem | Out-Null
-    Assert ($LASTEXITCODE -eq 0) 'Fixture account restoration failed'
+    Set-FixtureConfig @{StartName='LocalSystem'}
     $exeAcl=Get-Acl -LiteralPath $exe
     $unsafeExeAcl=Get-Acl -LiteralPath $exe
     $unsafeExeAcl.AddAccessRule((New-Object Security.AccessControl.FileSystemAccessRule(([Security.Principal.SecurityIdentifier]'S-1-5-11'),'Write','Allow')))

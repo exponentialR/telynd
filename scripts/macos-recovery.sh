@@ -111,6 +111,17 @@ inspect_google() {
     if printf '%s\n' "$state" | grep -Eq '^[[:space:]]*state = (spawning|spawn scheduled|throttled)$'; then service=transitioning; fi
   else service=unknown; fi
 }
+read_attempts() {
+  now=$(date +%s); count=0; start=$now
+  if [ -e "$folder/attempts" ] || [ -L "$folder/attempts" ]; then
+    safe_file "$folder/attempts" 600 || return 1
+    local extra
+    read -r start count extra < "$folder/attempts" || return 1
+    [[ "$start" =~ ^[1-9][0-9]{0,11}$ && "$count" =~ ^[0-3]$ && -z "$extra" ]] || return 1
+    (( start <= now )) || return 1
+    if (( now - start >= 1800 )); then start=$now; count=0; fi
+  fi
+}
 report() {
   local installation=missing
   if [ -e "$folder/manifest" ]; then
@@ -128,6 +139,7 @@ report() {
     safe_file "$folder/operation.lock" 600 || fail 'Unsafe recovery lock.'
     if ! (exec 9< "$folder/operation.lock"; lockf -s -t 0 9); then installation=partial; fi
   fi
+  if ! read_attempts; then installation=partial; fi
   local version architecture
   version=$(sw_vers -productVersion); architecture=$(uname -m)
   [[ "$version" =~ ^[0-9.]+$ && "$architecture" =~ ^[A-Za-z0-9_]+$ ]] || fail 'Unexpected system version.'
@@ -202,15 +214,14 @@ else
   inspect_google
   outcome=unchanged
   if [ "$service" = stopped ] && [ "$enablement" = enabled ] && [ "$recovery" = stopped-service ]; then
-    now=$(date +%s); count=0; start=$now
-    if [ -f "$folder/attempts" ]; then
-      read -r start count < "$folder/attempts" || fail 'Could not read retry state.'
-      [[ "$start" =~ ^[0-9]{1,12}$ && "$count" =~ ^[0-9]{1,2}$ ]] || fail 'Invalid retry state.'
-      if (( now - start >= 1800 )); then start=$now; count=0; fi
-    fi
-    if (( count >= 3 || start > now )); then outcome=retry-limit
+    read_attempts || fail 'Invalid retry state. Review it before recovery.'
+    if (( count >= 3 )); then outcome=retry-limit
     else
-      printf '%s %s\n' "$start" "$((count + 1))" > "$folder/attempts"
+      retry_temp=$(mktemp "$folder/attempts.XXXXXXXX")
+      if ! printf '%s %s\n' "$start" "$((count + 1))" > "$retry_temp"; then
+        rm "$retry_temp"; fail 'Could not write retry state.'
+      fi
+      mv -f "$retry_temp" "$folder/attempts"
       # No -k: kickstart must not kill an already running host/session.
       launchctl kickstart "$target"
       outcome=started

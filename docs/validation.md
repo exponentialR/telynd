@@ -21,8 +21,8 @@ at source `ccefab4f944bc9337af1021f5c58f423cd674f1f`. Subsequent commits refine
 UI copy, bounded regular-file report reads, native-test output isolation and
 additional service-security coverage; inspect the PR's current checks before merging.
 
-Current local coverage: 30 Swift tests and 41 discovered Python tests (40 run on
-macOS, one Linux-only flock test skipped; Linux skips nine Mac-only tests).
+Current local coverage: 30 Swift tests and 42 discovered Python tests (41 run on
+macOS, one Linux-only flock test skipped; Linux skips ten Mac-only tests).
 Windows and native launchd tests are separate disposable CI scripts. File
 fixtures replace fixed command/path providers only in copies; product scripts
 have no testing bypass parameter or configurable service target.

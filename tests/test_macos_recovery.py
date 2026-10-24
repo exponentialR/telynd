@@ -128,8 +128,17 @@ esac
         for _ in range(3): self.assertEqual(self.run_mode('tick')['outcome'],'started')
         self.assertEqual(self.run_mode('tick')['outcome'],'retry-limit')
         self.assertEqual(len((self.root/'starts').read_text().splitlines()),3)
-        (self.folder/'attempts').write_text('malformed')
-        self.run_mode('tick',ok=False)
+        for state in ['', 'malformed', '999999999999 1\n', f'{int(time.time())} 1 extra\n']:
+            (self.folder/'attempts').write_text(state)
+            self.assertEqual(self.run_mode('check')['installation'],'partial')
+            self.run_mode('tick',ok=False)
+
+    def test_unsupported_native_locking_fails_before_agent_installation(self):
+        stub=self.bin/'lockf'; stub.write_text('#!/bin/bash\nexit 64\n'); stub.chmod(0o755)
+        result=self.run_mode('install',ok=False)
+        self.assertIn('native descriptor locking',result.stderr)
+        self.assertFalse((self.root/'loaded').exists())
+        self.assertFalse((self.folder/'macos-recovery.sh').exists())
 
     def test_signature_drift_links_and_lock_refuse_changes(self):
         (self.root/'bad-signature').touch()
