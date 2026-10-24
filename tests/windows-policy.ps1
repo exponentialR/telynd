@@ -107,12 +107,12 @@ try {
     Assert-CheckRefused 'Writable executable accepted'
     Set-Acl -LiteralPath $exe -AclObject $exeAcl
     $registryPath='HKLM:\SYSTEM\CurrentControlSet\Services\TelyndRecoveryFixture'
-    $registryAcl=Get-Acl -LiteralPath $registryPath
-    $unsafeRegistryAcl=Get-Acl -LiteralPath $registryPath
+    $registryAcl=Get-Acl -Path $registryPath
+    $unsafeRegistryAcl=Get-Acl -Path $registryPath
     $unsafeRegistryAcl.AddAccessRule((New-Object Security.AccessControl.RegistryAccessRule(([Security.Principal.SecurityIdentifier]'S-1-5-11'),'SetValue','Allow')))
-    Set-Acl -LiteralPath $registryPath -AclObject $unsafeRegistryAcl
+    Set-Acl -Path $registryPath -AclObject $unsafeRegistryAcl
     Assert-CheckRefused 'Writable service registry accepted'
-    Set-Acl -LiteralPath $registryPath -AclObject $registryAcl
+    Set-Acl -Path $registryPath -AclObject $registryAcl
     $serviceSddl=[Telynd.ServicePolicy]::Security($service)
     $unsafeSddl=New-Object Security.AccessControl.RawSecurityDescriptor($serviceSddl)
     $unsafeSddl.DiscretionaryAcl.InsertAce(0,(New-Object Security.AccessControl.CommonAce([Security.AccessControl.AceFlags]::None,[Security.AccessControl.AceQualifier]::AccessAllowed,2,([Security.Principal.SecurityIdentifier]'S-1-5-11'),$false,$null)))

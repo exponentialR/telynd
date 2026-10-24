@@ -58,7 +58,9 @@ function Get-ChromeHost {
     $sig = Get-AuthenticodeSignature -LiteralPath $exe
     if ($sig.Status -ne 'Valid' -or $null -eq $sig.SignerCertificate -or $sig.SignerCertificate.GetNameInfo([Security.Cryptography.X509Certificates.X509NameType]::SimpleName,$false) -notin @('Google LLC','Google Inc')) { throw 'Chrome host signature is not trusted.' }
     # Service configuration itself must not be mutable by ordinary users.
-    $key = Get-Acl -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Services\chromoting'
+    # Windows PowerShell 5.1's -LiteralPath registry lookup depends on the
+    # current provider. This fixed path has no wildcard characters.
+    $key = Get-Acl -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\chromoting'
     if ($key.GetOwner([Security.Principal.SecurityIdentifier]).Value -notin @($Admins.Value,$System.Value)) { throw 'Untrusted service configuration owner.' }
     foreach ($rule in $key.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])) {
         if ($rule.AccessControlType -eq 'Allow' -and ($rule.RegistryRights -band ([Security.AccessControl.RegistryRights]::SetValue -bor [Security.AccessControl.RegistryRights]::CreateSubKey -bor [Security.AccessControl.RegistryRights]::Delete -bor [Security.AccessControl.RegistryRights]::ChangePermissions -bor [Security.AccessControl.RegistryRights]::TakeOwnership)) -ne 0 -and $rule.IdentityReference.Value -notin @($Admins.Value,$System.Value)) { throw 'Chrome service configuration is writable by another identity.' }
