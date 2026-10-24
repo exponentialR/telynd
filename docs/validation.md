@@ -1,5 +1,27 @@
 # Onboarding validation record
 
+## Capture and setup-resume review corrections, 24 October 2026
+
+Source `adcb6f954eb5d1ae4c48256bae1310c46a83f5e9` corrects two reproduced
+issues from the compact-dashboard review. A capture completion now belongs to
+its original editor request and draft. Manual typing/pasting, choosing another
+computer, changed draft data or closing the editor invalidates the request, so
+a delayed result cannot replace newer input or publish an obsolete error.
+The setup guide saves its draft from the canonical saved computer, including
+cleared connection evidence when its destination changes.
+
+Verification: 39 Swift tests passed, including six new regression tests. The
+app-store tests use private temporary settings with the existing fixture gates;
+the test initializer is excluded from release builds. Native replays used an
+isolated debug copy with a synthetic reader delayed by 20 seconds, without
+Chrome or host access. Entering a different manual destination during capture
+preserved that destination through completion and Save. An unchanged draft
+accepted its own delayed capture and enabled Save. The legacy setup journey
+also retained its corrected connection link after Save, Back, closing setup and
+reopening it, with Save and continue enabled. These controlled replays test
+request ownership and persistence; the real Chrome permission/capture evidence
+is recorded separately below.
+
 ## Compact dashboard and Chrome-tab capture, 24 October 2026
 
 Source `61935f19e167e010008f7208c216dee209e0431b` was built locally in release
