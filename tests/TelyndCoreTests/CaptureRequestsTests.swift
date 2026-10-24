@@ -17,7 +17,9 @@ final class CaptureRequestsTests: XCTestCase {
 
     func testChangedComputerOrNameRejectsAResultBeforeTheChangeObserverRuns() {
         let original = Desktop(name: "First computer")
-        for changed in [Desktop(name: "Other computer"), renamed(original)] {
+        var differentAccount = original
+        differentAccount.chromeProfile = ChromeProfileReference(directory: "Profile 2", email: "other@example.test")
+        for changed in [Desktop(name: "Other computer"), renamed(original), differentAccount] {
             var requests = ChromeCaptureRequests()
             let pending = requests.begin(for: original)
             XCTAssertFalse(requests.consume(pending, current: changed))

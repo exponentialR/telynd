@@ -50,3 +50,12 @@ an inventory, infer a Google identity from SSH, read page content or change
 the selected Chrome profile. The macOS permission itself permits automation;
 the application code limits its request to the one address. Denial leaves
 manual entry available.
+
+The later multi-account refinement saves a Chrome profile directory and email
+label on each computer. Capturing a URL does not identify its Google account
+or change that association. The user chooses a profile once when several are
+available, then Connect reuses it. Missing profiles require explicit repair;
+there is no fallback to another account. Several Google web accounts inside a
+single Chrome profile still share that profile's browsing state; this app does
+not choose a Google web account within it. Separate Chrome profiles provide
+the supported route for keeping those connection contexts apart.

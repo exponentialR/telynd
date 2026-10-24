@@ -6,7 +6,7 @@
 </picture>
 
 A native macOS app that keeps your remote computers in one place. Choose your
-Chrome profile, save a computer and open Google Chrome Remote Desktop. SSH and
+browser account for each computer and open Google Chrome Remote Desktop. SSH and
 platform-specific service recovery are optional.
 
 Google provides the remote screen connection and handles sign-in and its PIN.
@@ -51,7 +51,7 @@ Linux SSH access and recovery. Mac/Windows kits run locally on their hosts. Tail
 
 | Path | Responsibility |
 | --- | --- |
-| `Sources/Telynd/` | SwiftUI guide, cards, profile picker and Terminal hand-off |
+| `Sources/Telynd/` | SwiftUI guide, searchable computer rows, per-computer accounts and Terminal hand-off |
 | `Sources/TelyndCore/` | Models, private persistence, profile metadata, readiness and bounded process execution |
 | `scripts/remote-check.sh` | Read-only structured readiness; explicit recovery mode |
 | `scripts/setup-mac.command` | Separate SSH authorisation, key creation and installer actions, with private receipts |
@@ -80,7 +80,15 @@ to Chrome and reads its front tab's address once, only when clicked. macOS's
 permission allows app automation; the fixed reader requests only that URL.
 It does not enumerate tabs or read cookies, browser passwords, OAuth tokens or
 remote screen contents. Manual entry remains available if permission is denied.
-Profile selection is not Google authentication. There is no telemetry or
+Each computer remembers its Chrome profile directory and email label. There is
+no global account switch. New computers use the sole available signed-in
+profile automatically; multiple profiles require a one-time selection. Missing
+or changed profiles require an explicit choice and never fall back to another
+account. Existing global choices are migrated once to existing computers and
+setup drafts, preserving their SSH settings. Preferences advance to schema 2,
+which older builds reject rather than ignoring per-computer account choices.
+The account label reflects Chrome metadata; the URL reader cannot identify the
+Google account active in the captured tab. Profile selection is not Google authentication. There is no telemetry or
 Google device-list API integration. Captured and saved Google links are checked before launch;
 SSH and Google device identities are never assumed to be equivalent.
 

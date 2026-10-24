@@ -9,33 +9,41 @@ Mac Swift toolchain; [release preparation](releasing.md) records what remains
 before normal download-and-open distribution.
 
 1. Install Google Chrome and sign into the Chrome profile you use for remote
-   access. If the remote computer is not configured, follow
+   access. For separate personal and work accounts, use a Chrome profile for
+   each. If the remote computer is not configured, follow
    [Google's setup guide](https://support.google.com/chrome/answer/1649523) first.
-2. Open Telynd. In its setup guide, choose your existing Chrome profile from the
-   list. If it is missing, open Chrome to sign in and choose **Refresh profiles**.
-   The list reflects local Chrome metadata, not a fresh Google authentication
-   check.
-3. Name your computer. Choose **Choose computer in Chrome** and open the
-   intended computer in Google's list. Return to Telynd and choose **Use open
-   computer**. macOS asks once for permission for Telynd to interact with Chrome;
-   Telynd reads only the front tab's address on this action. Review and save
-   the computer. **Connect** then opens it directly. No copying or SSH address
-   is needed. Connections use the Chrome profile selected in Telynd.
-4. Choose **Connect**. Complete the connection in Chrome, including
-   Google's PIN prompt if requested. Telynd records the launch; only you can
-   confirm that the remote session connected.
-5. Finish with **connection-only access**, or start optional recovery for the selected operating system.
-   More computers can be added from **Add computer**.
+2. Choose **Add computer** or follow Telynd's setup guide. Name the computer and
+   choose its **Browser account** once. With only one signed-in Chrome profile,
+   new computers use it automatically. With several profiles, choose the one
+   for this computer. **Refresh accounts** updates the local list; **Open Chrome
+   to sign in…** opens Chrome. The list reflects Chrome metadata, not a fresh
+   Google authentication check.
+3. Choose **Choose computer in Chrome**, which opens Google's list in that
+   computer's selected profile. Open the intended computer, return to Telynd
+   and choose **Use open computer**. macOS requests permission to interact with
+   Chrome; the action reads the front tab's address. Review the account and save
+   the computer. The captured address does not identify its Google account or
+   change the selected profile. No copying or SSH address is needed.
+4. Choose **Connect** on the computer's row. Telynd opens its direct link using
+   its saved Chrome profile, without a global account switch. Complete Google's
+   connection prompts, including its PIN if requested. Telynd records the
+   launch; only you can confirm that the remote session connected.
+5. Finish with **connection-only access**, or start optional recovery for the
+   selected operating system. Add more computers with their own browser accounts.
 
-You can close the guide and resume its completed steps later. Saved computers
-and the selected profile survive relaunch. **Setup guide** reopens the guide;
-**Edit** changes a computer's name, connection link or optional SSH address.
-Expand **Details & recovery** on a card for service checks, launch history
-and recovery settings. The home screen shows a compact recovery summary;
-it does not claim the computer is online or that Google has connected.
+Saved computers and their browser accounts survive relaunch. Search by computer
+name or account. The row's **…** menu offers **Edit computer…**, **Details &
+recovery** and **Recovery settings…**. Details contain service checks and launch
+history; they do not establish that Google can connect. **Setup guide** is in
+the toolbar's help menu. You can close setup and resume its saved progress.
+
+Existing computers inherit their previous global Chrome choice once when this
+build first opens. Later computers and unfinished drafts do not inherit that
+obsolete preference. Changing a computer's account or connection link clears
+its previous launch and user-confirmed connection timestamps.
 
 Older entries that saved Google's general device-list link are preserved.
-They show **Set connection link** until you save the individual computer's
+They show **Set connection** until you save the individual computer's
 address. New entries require that address before saving. Choose the remote
 operating system under **Optional recovery**, or when setting up recovery later.
 
@@ -45,8 +53,9 @@ the individual computer's `https://remotedesktop.google.com/access/session/…`
 address. Reading the device-list page or an unrelated tab does not save a
 connection. Capturing an address never starts SSH or changes a remote host.
 
-If a profile was removed, signed out or switched to a different account, select
-its current signed-in profile again. Telynd does not silently choose another
+If a profile was removed, signed out or switched to a different account, the
+row offers **Choose account**. Edit that computer and explicitly select its
+current profile again. Telynd does not silently choose another
 account. Sign-in failures, unavailable computers and PIN problems inside Chrome
 are handled through Google, separately from Linux service checks.
 

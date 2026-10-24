@@ -55,13 +55,14 @@ import CryptoKit
             preferences = try configuration.loadPreferences(existingDesktops: !desktops.isEmpty)
         } catch { self.error = error.localizedDescription; writeLocked = true }
         refreshProfiles()
+        migrateConnectionProfiles()
         refreshOperationNotes()
         showGuide = !preferences.guideCompleted && !writeLocked
     }
     @discardableResult func save(_ desktop: Desktop) -> Bool {
         guard !writeLocked else { error = ConfigurationError.writeLocked.localizedDescription; return false }
         var desktop = desktop
-        if let old = desktops.first(where: { $0.id == desktop.id }), old.chromeURL != desktop.chromeURL {
+        if let old = desktops.first(where: { $0.id == desktop.id }), old.chromeURL != desktop.chromeURL || old.chromeProfile != desktop.chromeProfile {
             desktop.lastLaunch = nil; desktop.userConfirmedConnection = nil
         }
         var updated = desktops
@@ -96,17 +97,26 @@ import CryptoKit
                 profiles = profiles.filter { var directory: ObjCBool = false; return FileManager.default.fileExists(atPath: root.appendingPathComponent($0.directory).path, isDirectory: &directory) && directory.boolValue }
             }
             profileProblem = profiles.contains(where: \.signedIn) ? nil : ConfigurationError.noProfiles.localizedDescription
-            if preferences.chromeProfileDirectory == nil, !preferences.chromeProfileEmail.isEmpty,
-               let match = try? ChromeProfiles.selected(in: profiles, preferences: preferences), !writeLocked {
-                _ = updatePreferences { $0.chromeProfileDirectory = match.directory }
-            }
         } catch { profiles = []; profileProblem = ConfigurationError.unreadableProfiles.localizedDescription }
     }
-    func chooseProfile(_ directory: String) {
-        guard let profile = profiles.first(where: { $0.directory == directory && $0.signedIn }) else { return }
-        _ = updatePreferences { $0.chromeProfileDirectory = profile.directory; $0.chromeProfileEmail = profile.email }
+    private func migrateConnectionProfiles() {
+        guard !writeLocked, !preferences.connectionProfilesMigrated || preferences.schemaVersion < 2 else { return }
+        do {
+            let legacy = preferences.connectionProfilesMigrated ? nil : preferences.legacyChromeProfile
+            let migrated = desktops.map { ChromeProfiles.migrate($0, legacy: legacy, profiles: profiles) }
+            if migrated != desktops { try configuration.saveDesktops(migrated); desktops = migrated }
+            let migratedDraft = preferences.guideDraft.map { ChromeProfiles.migrate($0, legacy: legacy, profiles: profiles) }
+            if !updatePreferences({ $0.guideDraft = migratedDraft; $0.connectionProfilesMigrated = true; $0.schemaVersion = 2 }) { writeLocked = true }
+        } catch { self.error = error.localizedDescription; writeLocked = true }
     }
-    var profileReady: Bool { (try? ChromeProfiles.selected(in: profiles, preferences: preferences)) != nil }
+    func newDesktop() -> Desktop {
+        refreshProfiles()
+        var desktop = Desktop(name: "")
+        let available = profiles.filter(\.signedIn)
+        if available.count == 1 { desktop.chromeProfile = available[0].reference }
+        return desktop
+    }
+    func profileReady(for desktop: Desktop) -> Bool { (try? ChromeProfiles.selected(in: profiles, reference: desktop.chromeProfile)) != nil }
     func captureChromeConnection(_ completion: @escaping (Result<String, Error>) -> Void) {
         guard !readingChromeConnection else { return }
         guard !fixtureMode else { completion(.failure(ChromeCaptureError.unavailable)); return }
@@ -120,18 +130,24 @@ import CryptoKit
         }
     }
     func connect(_ desktop: Desktop) {
-        guard desktop.hasDirectConnection else { error = "Save this computer’s individual connection link before connecting. Choose Edit, open the computer in Chrome and copy its address."; return }
-        openChrome(desktop.chromeURL) { [weak self] in
+        guard desktop.hasDirectConnection else { error = "Save this computer’s individual connection link before connecting. Choose Edit, open the computer in Chrome and choose Use open computer."; return }
+        openChrome(desktop) { [weak self] in
             guard let self else { return }
             var item = desktop; item.lastLaunch = Date()
             if self.save(item) { self.operationNotes[item.id] = "Opened in Chrome. A browser launch does not confirm a connected remote session." }
         }
     }
-    func openChrome(_ value: String = InputValidation.devicePicker, completed: (() -> Void)? = nil) {
+    func openChrome(_ desktop: Desktop, picker: Bool = false, completed: (() -> Void)? = nil) {
         refreshProfiles()
         let chrome = fixtureMode ? nil : NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.google.Chrome")
         let arguments: [String]
-        do { arguments = try ChromeLaunch.arguments(url: value, profiles: profiles, preferences: preferences, applicationAvailable: fixtureMode || chrome != nil) }
+        do {
+            if picker {
+                let profile = try ChromeProfiles.selected(in: profiles, reference: desktop.chromeProfile)
+                guard fixtureMode || chrome != nil else { throw ConfigurationError.chromeMissing }
+                arguments = ["--profile-directory=\(profile.directory)", InputValidation.devicePicker]
+            } else { arguments = try ChromeLaunch.arguments(desktop: desktop, profiles: profiles, applicationAvailable: fixtureMode || chrome != nil) }
+        }
         catch { self.error = error.localizedDescription; return }
         if fixtureMode { completed?(); return }
         guard let chrome else { return }
