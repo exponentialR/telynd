@@ -14,15 +14,34 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Check shell syntax
         run: |
-          for script in scripts/*.sh scripts/*.command build.sh; do
+          for script in scripts/*.sh scripts/*.command tests/*.sh build.sh; do
             bash -n "$script"
           done
       - name: Exercise recovery decisions and locking
         run: python3 -m unittest discover -s tests -v
 
+      - name: Reject unsafe Linux directory ancestors
+        run: sudo env TELYND_DISPOSABLE_LINUX=1 bash tests/linux-path-security.sh
+      - name: Verify public-key authorisation in a disposable account
+        run: sudo env TELYND_DISPOSABLE_LINUX=1 bash tests/linux-authorisation.sh
+      - name: Verify installation on disposable systemd runner
+        run: sudo env TELYND_DISPOSABLE_LINUX=1 bash tests/linux-integration.sh
+
   mac-app:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Exercise configuration and readiness boundaries
+        run: swift test
+      - name: Exercise key authorisation and SSH parsing
+        run: |
+          python3 -m unittest discover -s tests -p test_authorisation.py -v
+          python3 -m unittest discover -s tests -p test_ssh_policy.py -v
       - name: Build and verify app bundle
         run: bash build.sh
+      - name: Validate signing transport without credentials
+        run: |
+          ditto --norsrc --noextattr -c -k --keepParent build/Telynd.app build/release-input.zip
+          version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' build/Telynd.app/Contents/Info.plist)
+          python3 scripts/prepare_release_input.py build/release-input.zip build/signing-input --tag "v$version" --revision "$GITHUB_SHA"
+          codesign --verify --deep --strict build/signing-input/Telynd.app

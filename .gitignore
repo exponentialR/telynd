@@ -1,4 +1,6 @@
 build/
+.build/
+.swiftpm/
 .DS_Store
 __pycache__/
 # Local machine details and screenshots are never release assets.
@@ -11,3 +13,5 @@ launcher-preview.png
 .env.*
 *.pem
 *.key
+
+dist/

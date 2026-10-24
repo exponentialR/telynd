@@ -7,15 +7,18 @@ between a running service and a working Google remote connection.
 Build and check changes from the repository root:
 
 ```sh
+swift test
 bash build.sh
 python3 -m unittest discover -s tests -v
-for script in scripts/*.sh scripts/*.command build.sh; do bash -n "$script"; done
+for script in scripts/*.sh scripts/*.command tests/*.sh build.sh; do bash -n "$script"; done
 ```
 
 Changes to the privileged recovery helper need tests for the relevant failure
 path. Running, disabled and transitioning services must remain undisturbed.
 The helper must keep a fixed per-account target and reject all arguments.
 Never add broad password-free sudo permissions or disable SSH host-key checks.
+Validate every directory ancestor before privileged access. Automated SSH must
+disable forwarding and connection reuse, regardless of the user's defaults.
 
 Use fictitious hostnames and accounts in fixtures, screenshots and issue
 reports. Keep local configuration, credentials and private host details out of
@@ -27,3 +30,22 @@ the committed branding exports and do not need the font or image tools.
 
 Describe what changed and how it was checked in each pull request. State live
 Linux, Google connection or hardware checks separately from mock tests and CI.
+
+Run `tests/linux-integration.sh` only as root on an explicitly disposable Linux
+VM or CI runner, with `TELYND_DISPOSABLE_LINUX=1`. It creates a synthetic account,
+a synthetic Chrome service and temporary administrator permissions for that
+test account. It never validates a Google session. Do not run it on a personal
+or production host. See [validation](docs/validation.md) and
+[release preparation](docs/releasing.md) for evidence boundaries.
+
+In the same disposable environment, run
+`sudo env TELYND_DISPOSABLE_LINUX=1 bash tests/linux-path-security.sh` to test
+ancestor guards against writable, non-root-owned and symlinked paths. macOS CI
+also validates the real ad-hoc app's signing transport without Apple secrets.
+Keep build execution out of the credentialed signing job.
+
+Run `sudo env TELYND_DISPOSABLE_LINUX=1 bash tests/linux-authorisation.sh` only
+on the same kind of disposable Linux environment. It creates/removes its own
+test account and exercises the actual public-key installer, including its
+command/data boundary, permissions, concurrent updates and restricted entries.
+Its transport and Keychain adapters do not establish live SSH authentication.
