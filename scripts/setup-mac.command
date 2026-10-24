@@ -35,24 +35,27 @@ if ! [[ "$target" =~ ^[A-Za-z_][A-Za-z0-9_-]*@[A-Za-z0-9][A-Za-z0-9.-]*$ ]]; the
 fi
 [ -f "$key" ] && [ -f "$key.pub" ] || { echo 'Choose an existing private key and matching .pub file, or create a key first.'; exit 1; }
 resources=$(cd "$(dirname "$0")" && pwd)
-ssh_options=(-o ConnectTimeout=10 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 -o UseKeychain=yes -o AddKeysToAgent=yes -o IdentitiesOnly=yes -i "$key")
+. "$resources/ssh-policy.sh"
+telynd_ssh_policy yes "$key"
 if [ "$mode" = authorise ]; then
   echo 'Verify any new host fingerprint against a trusted record before accepting it.'
   echo 'Enter your Linux login password directly in SSH. This step does not install recovery.'
   ssh-add --apple-use-keychain "$key"
   result=authentication_failed
-  ssh-copy-id -i "$key.pub" -o "IdentityFile=$key" -o IdentitiesOnly=yes -o ConnectTimeout=10 "$target"
+  telynd_ssh_policy ask "$key"
+  ssh-copy-id -i "$key.pub" "${telynd_ssh_options[@]}" "$target"
+  telynd_ssh_policy yes "$key"
   result=verification_unavailable
-  ssh "${ssh_options[@]}" -o BatchMode=yes -o StrictHostKeyChecking=yes "$target" true
+  ssh "${telynd_ssh_options[@]}" -o BatchMode=yes -o StrictHostKeyChecking=yes "$target" true
   result=ssh_ready
 else
-  ssh "${ssh_options[@]}" -o BatchMode=yes -o StrictHostKeyChecking=yes "$target" true
-  remote_setup=$(ssh "${ssh_options[@]}" -o BatchMode=yes -o StrictHostKeyChecking=yes "$target" 'umask 077; mktemp /tmp/telynd-setup.XXXXXXXX')
+  ssh "${telynd_ssh_options[@]}" -o BatchMode=yes -o StrictHostKeyChecking=yes "$target" true
+  remote_setup=$(ssh "${telynd_ssh_options[@]}" -o BatchMode=yes -o StrictHostKeyChecking=yes "$target" 'umask 077; mktemp /tmp/telynd-setup.XXXXXXXX')
   if ! [[ "$remote_setup" =~ ^/tmp/telynd-setup\.[A-Za-z0-9]{8}$ ]]; then echo 'Unexpected remote temporary path'; exit 1; fi
   script=setup-remote.sh
   [ "$mode" = install ] || script=uninstall-remote.sh
-  scp -q -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=10 -o IdentitiesOnly=yes -i "$key" "$resources/$script" "$target:$remote_setup"
-  ssh -t "${ssh_options[@]}" -o BatchMode=yes -o StrictHostKeyChecking=yes "$target" "bash '$remote_setup' '$mode'; code=\$?; rm -f '$remote_setup'; exit \$code"
+  scp -q -o BatchMode=yes "${telynd_ssh_options[@]}" "$resources/$script" "$target:$remote_setup"
+  ssh -t "${telynd_ssh_options[@]}" -o BatchMode=yes -o StrictHostKeyChecking=yes "$target" "bash '$remote_setup' '$mode'; code=\$?; rm -f '$remote_setup'; exit \$code"
   case "$mode" in install) result=installed;; disable) result=disabled;; uninstall) result=uninstalled;; esac
 fi
 echo 'Finished. Return to Telynd and recheck readiness for the current state.'

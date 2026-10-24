@@ -1,6 +1,26 @@
 #!/bin/bash
 # Readiness is read-only. Recovery is an explicit, separate mode.
 set -eu
+# Check ancestors from / downwards, before traversing or writing a child.
+# Kept inline because these scripts are sent to Linux as standalone payloads.
+telynd_secure_directories() {
+  local directory current component mode
+  local -a components
+  for directory in "$@"; do
+    case "$directory" in /*) ;; *) return 1;; esac
+    current=/
+    IFS=/ read -r -a components <<< "${directory#/}"
+    for component in '' "${components[@]}"; do
+      case "$component" in .|..) return 1;; '') ;; *) current="${current%/}/$component";; esac
+      [ ! -L "$current" ] || return 1
+      if [ -e "$current" ]; then
+        [ -d "$current" ] && [ "$(stat -c %u "$current")" = 0 ] || return 1
+        mode=$(stat -c %a "$current") || return 1
+        (( (8#$mode & 8#022) == 0 )) || return 1
+      fi
+    done
+  done
+}
 mode=${1:-check}
 case "$mode" in check|recover) ;; *) exit 2;; esac
 emit() { printf 'TELYND:%s=%s\n' "$1" "$2"; }
@@ -28,6 +48,8 @@ emit missing_tools "${missing# }"
 verified=no
 if [ "$uid" = 0 ]; then
   emit installation unsupported_root
+elif ! telynd_secure_directories /usr/local/libexec /etc/systemd/system /etc/sudoers.d /var/lib/telynd; then
+  emit installation unsafe
 elif [ -e "$status" ] || [ -L "$status" ]; then
   if [ ! -L "$status" ] && [ "$(stat -c '%u:%a' "$status")" = 0:755 ]; then
     # The root-owned no-argument status helper only reads its installation manifest.

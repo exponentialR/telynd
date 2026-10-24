@@ -27,7 +27,28 @@ Support. Replacing the app must preserve that directory and identifier.
 Obtain Apple Developer membership and a Developer ID Application certificate
 with its private key through the normal Apple process. Do not put credentials
 in issues or source. Configure the `macos-release` GitHub environment, restrict
-its deployment branches/tags and enable required maintainer review before use.
+its deployment branch to `main` and enable required maintainer review before use.
+Do not permit protection bypass or self-approval. The trusted workflow and its
+validators must first be reviewed and merged into `main`.
+
+Configure two active repository rulesets, with no exclusions or bypass actors:
+
+- A branch ruleset explicitly covering `refs/heads/main` (or all branches),
+  requiring at least one approving review, dismissal of stale approvals and
+  current `mac-app` and `recovery` status checks with strict update policy.
+- A tag ruleset covering `refs/tags/v*` (or all tags), blocking updates and
+  deletion. Create version tags only after source review; do not add a bypass
+  actor to make existing tags mutable.
+
+Set repository variables `RELEASE_MAIN_RULESET_ID` and
+`RELEASE_TAG_RULESET_ID` to their numeric IDs. The pipeline checks their active
+rules through GitHub's API and refuses missing or weakened protection. GitHub
+hides bypass actors from read-only API callers, so the environment's required
+reviewer must separately verify that neither ruleset grants bypass access.
+Record that check with the release evidence. No broader API token is needed.
+These protections and IDs were not configured when the pipeline was prepared;
+release preparation fails closed until they are available.
+
 Provide environment variable `DEVELOPER_ID_APPLICATION` with the approved
 certificate's full identity name, and these environment secrets:
 
@@ -46,10 +67,26 @@ ad-hoc signing when release credentials are missing.
 Review the desired commit, green Checks run, onboarding evidence and release
 notes. Tag that reviewed commit with `vMAJOR.MINOR.PATCH` matching the bundle's
 version. Run **Prepare signed macOS release** with that existing tag and the
-explicit onboarding-validation confirmation. No release runs automatically on
-a push. The workflow repeats Linux integration, Swift tests and build checks
-against the tagged revision, then signs with hardened runtime and a timestamp,
-notarises, staples and verifies the app. It recreates the ZIP after stapling.
+explicit onboarding-validation confirmation, selecting `main` as the workflow
+branch. No release runs automatically on a push. Four jobs enforce the boundary:
+
+1. Trusted workflow-main code verifies that the tag's commit is in that main
+   snapshot's history, validates protection and records the commit and tag object.
+2. Linux tests run against the pinned commit without Apple credentials.
+3. A separate Mac runner tests and builds the pinned commit without Apple
+   credentials, then uploads an immutable build artifact.
+4. After environment approval, a fresh Mac runner checks out workflow-main code,
+   rechecks the tag and validates the artifact as data. It rejects unexpected
+   files, links, unsafe paths, oversized archives, preview metadata and resource
+   scripts differing from the pinned source. It verifies the ad-hoc signature
+   before importing credentials. Trusted main's signer signs with hardened
+   runtime and a timestamp, notarises, staples and verifies without rebuilding
+   or executing the app. The remote tag is checked again before creating a draft.
+
+The credentialed job never executes the requested tag's build scripts or Swift
+package manifest. Normal Mac CI exercises ZIP validation and signature
+preservation without signing credentials. The public ZIP is recreated after
+stapling.
 
 The output is a **draft GitHub release**, with an ARM64 ZIP, `SHA256SUMS`,
 `SOURCE_REVISION.txt` and `BUILD_INFO.txt`. There is no automatic public publish

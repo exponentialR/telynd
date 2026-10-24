@@ -1,12 +1,34 @@
 #!/bin/bash
-set -eu
+set -euo pipefail
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
+# Check ancestors from / downwards, before traversing or writing a child.
+# Kept inline because these scripts are sent to Linux as standalone payloads.
+telynd_secure_directories() {
+  local directory current component mode
+  local -a components
+  for directory in "$@"; do
+    case "$directory" in /*) ;; *) return 1;; esac
+    current=/
+    IFS=/ read -r -a components <<< "${directory#/}"
+    for component in '' "${components[@]}"; do
+      case "$component" in .|..) return 1;; '') ;; *) current="${current%/}/$component";; esac
+      [ ! -L "$current" ] || return 1
+      if [ -e "$current" ]; then
+        [ -d "$current" ] && [ "$(stat -c %u "$current")" = 0 ] || return 1
+        mode=$(stat -c %a "$current") || return 1
+        (( (8#$mode & 8#022) == 0 )) || return 1
+      fi
+    done
+  done
+}
 mode=${1:-uninstall}
 case "$mode" in disable|uninstall) ;; *) exit 2;; esac
 uid=$(id -u)
 [ "$uid" -ne 0 ] || { echo 'Run as the desktop account.'; exit 1; }
-sudo /bin/bash -s -- "$uid" "$mode" <<'ROOT'
+{
+  declare -f telynd_secure_directories
+  cat <<'ROOT'
 set -eu
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
@@ -15,6 +37,7 @@ name="remote-desktops-recovery-$uid"
 ledger="/var/lib/telynd/recovery-$uid"
 paths=("/usr/local/libexec/remote-desktops-recover-$uid" "/usr/local/libexec/remote-desktops-status-$uid" "/etc/systemd/system/$name.service" "/etc/systemd/system/$name.timer" "/etc/sudoers.d/$name")
 fail() { echo "$*" >&2; exit 1; }
+telynd_secure_directories /usr/local/libexec /etc/systemd/system /etc/sudoers.d /var/lib/telynd "/run/$name" || fail 'Unsafe recovery directory ancestry. Nothing changed; administrator review required.'
 install -d -o root -g root -m 700 "/run/$name"
 exec 8>"/run/$name/setup.lock"
 flock -n 8 || fail 'Another recovery setup operation is running.'
@@ -47,3 +70,4 @@ rmdir -- "$ledger"
 for path in "${paths[@]}"; do [ ! -e "$path" ] && [ ! -L "$path" ] || fail 'Removal was incomplete'; done
 echo 'Verified Telynd recovery components removed. Chrome and SSH keys preserved.'
 ROOT
+} | sudo /bin/bash -s -- "$uid" "$mode"

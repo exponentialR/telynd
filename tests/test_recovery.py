@@ -31,7 +31,7 @@ esac
         (tmp / "state").write_text(state)
         source = (ROOT / "scripts/setup-remote.sh").read_text()
         helper = source.split('cat > "$work/recover" <<EOF\n', 1)[1].split('\nEOF', 1)[0]
-        helper = (helper.replace('\\$', '$')
+        helper = (helper.replace('$guard_definition', 'telynd_secure_directories() { return 0; }').replace('\\$', '$')
                   .replace('$systemctl_path', str(ctl))
                   .replace('$install_path', shutil.which('install'))
                   .replace("unit='$unit'", "unit='chrome-remote-desktop@test.service'")

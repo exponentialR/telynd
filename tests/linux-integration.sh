@@ -5,6 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 source_root=$PWD
 sandbox=
+local_mode=$(stat -c %a /usr/local)
 account=telynd-ci-check
 ! id "$account" >/dev/null 2>&1 || { echo 'Test account already exists; refusing to reuse it.'; exit 2; }
 useradd -m -s /bin/bash "$account"
@@ -19,6 +20,7 @@ for path in "$helper" "$status" "$ledger" "$admin" "/etc/systemd/system/$unit" "
   [ ! -e "$path" ] && [ ! -L "$path" ] || { echo 'An integration target already exists. Stopping.'; userdel -r "$account"; exit 2; }
 done
 cleanup() {
+  chmod "$local_mode" /usr/local
   systemctl disable --now "$name.timer" "$unit" >/dev/null 2>&1 || true
   systemctl stop "$name.service" >/dev/null 2>&1 || true
   rm -f -- "$helper" "$status" "$admin" "/etc/systemd/system/$unit" "/etc/systemd/system/$name.service" "/etc/systemd/system/$name.timer" "/etc/sudoers.d/$name"
@@ -51,6 +53,13 @@ systemctl daemon-reload
 admin_on
 # A clean runner need not have this directory until its first installation.
 mkdir -p /usr/local/libexec
+# A root-owned leaf is insufficient if an ancestor permits replacement.
+chmod g+w /usr/local
+if as_user "$root/scripts/setup-remote.sh"; then echo 'Writable ancestor accepted'; exit 1; fi
+[ ! -e "$ledger" ]
+check | grep 'TELYND:installation=unsafe'
+if as_user "$root/scripts/uninstall-remote.sh" disable; then echo 'Unsafe uninstall path accepted'; exit 1; fi
+chmod "$local_mode" /usr/local
 # Unknown files must never be claimed or replaced.
 printf 'foreign\n' > "$helper"
 if as_user "$root/scripts/setup-remote.sh"; then echo 'Foreign file accepted'; exit 1; fi
@@ -72,6 +81,11 @@ if as_user -c "sudo -n '$helper'"; then echo 'Disabled host accepted'; exit 1; f
 rm "$admin"
 check | grep 'TELYND:installation=verified'
 as_user -c "sudo -n '$status'" | grep 'TELYND:installation=verified'
+chmod g+w /usr/local
+check | grep 'TELYND:installation=unsafe'
+if as_user -c "sudo -n '$helper'"; then echo 'Runtime helper ignored unsafe ancestry'; exit 1; fi
+if as_user -c "sudo -n '$status'"; then echo 'Status helper ignored unsafe ancestry'; exit 1; fi
+chmod "$local_mode" /usr/local
 if as_user -c "sudo -n '$helper' forbidden"; then echo 'Sudoers accepted arguments'; exit 1; fi
 if as_user -c 'sudo -n /bin/true'; then echo 'Sudoers granted unrelated access'; exit 1; fi
 systemctl enable "$unit"

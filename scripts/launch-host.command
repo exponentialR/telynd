@@ -11,4 +11,6 @@ case "$mode" in
   *) echo 'Unknown action'; exit 2;;
 esac
 if ! [[ "$target" =~ ^[A-Za-z_][A-Za-z0-9_-]*@[A-Za-z0-9][A-Za-z0-9.-]*$ ]]; then echo 'Use user@hostname.'; exit 2; fi
-exec ssh -o ConnectTimeout=10 -o UseKeychain=yes -o AddKeysToAgent=yes -o IdentitiesOnly=yes -i "$key" "$target"
+. "$resources/ssh-policy.sh"
+telynd_ssh_policy ask "$key"
+exec ssh "${telynd_ssh_options[@]}" "$target"

@@ -17,6 +17,8 @@ Changes to the privileged recovery helper need tests for the relevant failure
 path. Running, disabled and transitioning services must remain undisturbed.
 The helper must keep a fixed per-account target and reject all arguments.
 Never add broad password-free sudo permissions or disable SSH host-key checks.
+Validate every directory ancestor before privileged access. Automated SSH must
+disable forwarding and connection reuse, regardless of the user's defaults.
 
 Use fictitious hostnames and accounts in fixtures, screenshots and issue
 reports. Keep local configuration, credentials and private host details out of
@@ -35,3 +37,9 @@ a synthetic Chrome service and temporary administrator permissions for that
 test account. It never validates a Google session. Do not run it on a personal
 or production host. See [validation](docs/validation.md) and
 [release preparation](docs/releasing.md) for evidence boundaries.
+
+In the same disposable environment, run
+`sudo env TELYND_DISPOSABLE_LINUX=1 bash tests/linux-path-security.sh` to test
+ancestor guards against writable, non-root-owned and symlinked paths. macOS CI
+also validates the real ad-hoc app's signing transport without Apple secrets.
+Keep build execution out of the credentialed signing job.

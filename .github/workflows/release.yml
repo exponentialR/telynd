@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing reviewed version tag, for example v0.2.0
+        description: Existing immutable version tag in reviewed main history
         type: string
         required: true
       onboarding_validated:
-        description: The onboarding evidence for this source revision has been reviewed
+        description: Onboarding evidence for this source revision has been reviewed
         type: boolean
         required: true
         default: false
@@ -20,42 +20,105 @@ concurrency:
   group: signed-release
   cancel-in-progress: false
 
-jobs:
-  linux:
-    if: inputs.onboarding_validated
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          ref: refs/tags/${{ inputs.tag }}
-          persist-credentials: false
-      - run: python3 -m unittest discover -s tests -v
-      - run: sudo env TELYND_DISPOSABLE_LINUX=1 bash tests/linux-integration.sh
+env:
+  RELEASE_MAIN_RULESET_ID: ${{ vars.RELEASE_MAIN_RULESET_ID }}
+  RELEASE_TAG_RULESET_ID: ${{ vars.RELEASE_TAG_RULESET_ID }}
 
-  signed-draft:
-    needs: linux
-    runs-on: macos-latest
-    environment: macos-release
-    permissions:
-      contents: write
+jobs:
+  provenance:
+    if: github.ref == 'refs/heads/main' && inputs.onboarding_validated
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      revision: ${{ steps.source.outputs.revision }}
+      tag_object: ${{ steps.source.outputs.tag_object }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: refs/tags/${{ inputs.tag }}
+          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - name: Verify tagged source
+      - id: source
+        name: Validate protected main history and immutable remote tag
         env:
+          GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.tag }}
+        run: python3 scripts/release_provenance.py --tag "$RELEASE_TAG" --approved-main "$GITHUB_SHA" --github-output "$GITHUB_OUTPUT"
+
+  linux:
+    needs: provenance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.provenance.outputs.revision }}
+          persist-credentials: false
+      - run: python3 -m unittest discover -s tests -v
+      - run: sudo env TELYND_DISPOSABLE_LINUX=1 bash tests/linux-path-security.sh
+      - run: sudo env TELYND_DISPOSABLE_LINUX=1 bash tests/linux-integration.sh
+
+  build:
+    needs: provenance
+    runs-on: macos-latest
+    timeout-minutes: 15
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.provenance.outputs.revision }}
+          persist-credentials: false
+      - name: Test and build without signing credentials
         run: |
-          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
-          test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
           swift test
           python3 -m unittest discover -s tests -v
           for script in scripts/*.sh scripts/*.command tests/*.sh build.sh; do bash -n "$script"; done
-      - name: Sign, notarise, staple and verify
+          bash build.sh
+          ditto --norsrc --noextattr -c -k --keepParent build/Telynd.app build/release-input.zip
+      - id: upload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-input
+          path: build/release-input.zip
+          if-no-files-found: error
+          retention-days: 3
+
+  signed-draft:
+    needs: [provenance, linux, build]
+    runs-on: macos-latest
+    timeout-minutes: 45
+    environment: macos-release
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      # Run only workflow-main's trusted validator and signer. No tagged source
+      # is checked out or executed in the job containing Apple credentials.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact_id }}
+          path: build/artifact
+          merge-multiple: true
+      - name: Recheck provenance and validate artifact as data
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_REVISION: ${{ needs.provenance.outputs.revision }}
+          TAG_OBJECT: ${{ needs.provenance.outputs.tag_object }}
+        run: |
+          python3 scripts/release_provenance.py --tag "$RELEASE_TAG" --approved-main "$GITHUB_SHA" --expected-revision "$SOURCE_REVISION" --expected-tag-object "$TAG_OBJECT"
+          python3 scripts/prepare_release_input.py build/artifact/release-input.zip build/signing-input --tag "$RELEASE_TAG" --revision "$SOURCE_REVISION"
+          codesign --verify --deep --strict build/signing-input/Telynd.app
+      - name: Sign, notarise, staple and verify without executing the app
         env:
           TELYND_RELEASE_TAG: ${{ inputs.tag }}
+          TELYND_SOURCE_REVISION: ${{ needs.provenance.outputs.revision }}
           DEVELOPER_ID_APPLICATION: ${{ vars.DEVELOPER_ID_APPLICATION }}
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -63,9 +126,13 @@ jobs:
           APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
           APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
         run: bash scripts/release-macos.sh
-      - name: Create draft only; quarantine smoke test precedes publication
+      - name: Create draft only after a final remote tag check
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_REVISION: ${{ needs.provenance.outputs.revision }}
+          TAG_OBJECT: ${{ needs.provenance.outputs.tag_object }}
         run: |
-          gh release create "$RELEASE_TAG" dist/* --draft --verify-tag --title "Telynd $RELEASE_TAG" --notes-file docs/release-notes.md
+          python3 scripts/release_provenance.py --tag "$RELEASE_TAG" --approved-main "$GITHUB_SHA" --expected-revision "$SOURCE_REVISION" --expected-tag-object "$TAG_OBJECT"
+          git show "$SOURCE_REVISION:docs/release-notes.md" > build/release-notes.md
+          gh release create "$RELEASE_TAG" dist/* --draft --verify-tag --title "Telynd $RELEASE_TAG" --notes-file build/release-notes.md

@@ -23,7 +23,7 @@ case "$configuration" in release|debug) ;; *) echo 'Unknown build configuration'
 swift build -c "$configuration" --arch arm64
 binary_dir=$(swift build -c "$configuration" --arch arm64 --show-bin-path)
 cp "$binary_dir/Telynd" "$app/Contents/MacOS/Telynd"
-cp scripts/remote-check.sh scripts/setup-remote.sh scripts/uninstall-remote.sh scripts/launch-host.command scripts/setup-mac.command "$app/Contents/Resources/"
+cp scripts/ssh-policy.sh scripts/remote-check.sh scripts/setup-remote.sh scripts/uninstall-remote.sh scripts/launch-host.command scripts/setup-mac.command "$app/Contents/Resources/"
 cp assets/branding/Telynd.icns "$app/Contents/Resources/"
 cp assets/branding/telynd-logo-v2.png assets/branding/telynd-logo-dark.png "$app/Contents/Resources/"
 chmod 755 "$app/Contents/MacOS/Telynd" "$app/Contents/Resources/"*.command "$app/Contents/Resources/"*.sh

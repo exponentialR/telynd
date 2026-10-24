@@ -137,4 +137,25 @@ final class CoreTests: XCTestCase {
         XCTAssertThrowsError(try ChromeLaunch.arguments(url: InputValidation.devicePicker, profiles: [], preferences: prefs, applicationAvailable: true))
     }
 
+    func testReadinessSSHPolicyOverridesUnsafeUserDefaults() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let config = directory.appendingPathComponent("config")
+        try "Host *\n StrictHostKeyChecking no\n ForwardAgent yes\n ForwardX11 yes\n ControlMaster auto\n ControlPath /tmp/unsafe-mux\n ControlPersist yes\n PermitLocalCommand yes\n".write(to: config, atomically: true, encoding: .utf8)
+        let result = ProcessRunner.run("/usr/bin/ssh", arguments: ["-G", "-F", config.path] + SSHPolicy.readinessArguments(identity: "/tmp/synthetic_key", target: "reader@fixture.example", command: "true"))
+        XCTAssertEqual(result.code, 0)
+        let fields = Dictionary(result.output.split(separator: "\n").compactMap { line -> (String, String)? in
+            let pair = line.split(separator: " ", maxSplits: 1)
+            return pair.count == 2 ? (String(pair[0]), String(pair[1])) : nil
+        }, uniquingKeysWith: { first, _ in first })
+        XCTAssertEqual(fields["stricthostkeychecking"], "true")
+        XCTAssertEqual(fields["forwardagent"], "no")
+        XCTAssertEqual(fields["forwardx11"], "no")
+        XCTAssertEqual(fields["controlmaster"], "false")
+        XCTAssertTrue(fields["controlpath"] == nil || fields["controlpath"] == "none")
+        XCTAssertEqual(fields["clearallforwardings"], "yes")
+        XCTAssertEqual(fields["permitlocalcommand"], "no")
+    }
+
 }

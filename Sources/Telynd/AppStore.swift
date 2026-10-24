@@ -130,7 +130,7 @@ struct HostObservation {
         observations[desktop.id] = HostObservation(busy: true, note: recover ? "Checking whether recovery is needed…" : "Checking readiness without changing the host…")
         let script = resources.appendingPathComponent("remote-check.sh")
         DispatchQueue.global(qos: .userInitiated).async {
-            let result = Self.execute("/usr/bin/ssh", args: ["-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=yes", "-o", "ConnectTimeout=8", "-o", "ServerAliveInterval=5", "-o", "ServerAliveCountMax=2", "-o", "UseKeychain=yes", "-o", "IdentitiesOnly=yes", "-o", "AddKeysToAgent=yes", "-i", identity, target, "bash -s -- \(recover ? "recover" : "check")"], input: script)
+            let result = Self.execute("/usr/bin/ssh", args: SSHPolicy.readinessArguments(identity: identity, target: target, command: "bash -s -- \(recover ? "recover" : "check")"), input: script)
             DispatchQueue.main.async {
                 guard let current = self.desktops.first(where: { $0.id == desktop.id }), current.target == target, (current.identityPath ?? self.defaultIdentity) == identity else { self.observations[desktop.id] = nil; return }
                 let ssh = SSHResult(code: result.code, output: result.output)

@@ -31,6 +31,13 @@ The selected key is then checked with a new non-interactive connection before
 authorisation is reported as ready. Repeating authorisation uses ssh-copy-id's
 existing-key check. This action does not install recovery.
 
+First-contact authorisation explicitly prompts for host-key trust even if the
+user's SSH configuration disables checking. Subsequent automated connections
+require an already trusted host. Telynd disables agent, X11 and port forwarding,
+local commands and SSH connection sharing for these connections, including the
+verification step. Hostname and routing configuration can still be inherited;
+an SSH agent can authenticate locally without being forwarded to the host.
+
 After readiness identifies the supported service, **Install recovery** explains
 the scope and opens Terminal for administrator approval. The installer validates
 a narrow sudoers rule, installs root-owned components, records hashes, and
@@ -70,6 +77,15 @@ does not grant a shell or arbitrary service control. The status helper reads
 its ownership record and hashes; the recovery helper controls only its fixed
 Chrome unit. Password-free routine checks and recovery depend on successful
 one-time SSH and administrator setup.
+
+Every ancestor of these directories must be a real, root-owned directory with
+no group or other write permission, including `/usr/local`, `/usr`, `/etc`,
+`/var` and `/run`. Installation checks the chain from `/` before any root
+write. Readiness, removal and the installed helpers also check ancestry.
+Symlinked layouts and shared writable parents are refused; the installer does
+not change their ownership or permissions. Ask the administrator to assess an
+unsupported layout. Reinstall existing recovery components to receive these
+helper checks; updating the Mac app alone does not replace Linux components.
 
 A recognised partial installation can be retried. Surviving files must match
 the recorded hashes; changed content requires administrator review. An older

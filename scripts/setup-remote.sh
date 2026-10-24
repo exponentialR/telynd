@@ -1,8 +1,29 @@
 #!/bin/bash
 # Run on the Linux host as its desktop user; sudo prompts once at installation.
-set -eu
+set -euo pipefail
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
+# Check ancestors from / downwards, before traversing or writing a child.
+# Kept inline because these scripts are sent to Linux as standalone payloads.
+telynd_secure_directories() {
+  local directory current component mode
+  local -a components
+  for directory in "$@"; do
+    case "$directory" in /*) ;; *) return 1;; esac
+    current=/
+    IFS=/ read -r -a components <<< "${directory#/}"
+    for component in '' "${components[@]}"; do
+      case "$component" in .|..) return 1;; '') ;; *) current="${current%/}/$component";; esac
+      [ ! -L "$current" ] || return 1
+      if [ -e "$current" ]; then
+        [ -d "$current" ] && [ "$(stat -c %u "$current")" = 0 ] || return 1
+        mode=$(stat -c %a "$current") || return 1
+        (( (8#$mode & 8#022) == 0 )) || return 1
+      fi
+    done
+  done
+}
+guard_definition=$(declare -f telynd_secure_directories)
 desktop_user=$(id -un)
 desktop_uid=$(id -u)
 case "$desktop_user" in *[!a-zA-Z0-9_-]*|'') echo 'Unsupported account name'; exit 1;; esac
@@ -29,6 +50,8 @@ set -eu
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 [ "\$#" -eq 0 ] || exit 2
+$guard_definition
+telynd_secure_directories /usr/local/libexec /etc/systemd/system /etc/sudoers.d /var/lib/telynd /run/remote-desktops-recovery-${desktop_uid} || { echo 'Unsafe recovery directory ancestry. Administrator review required.'; exit 5; }
 # /run is root-owned. A private directory prevents unprivileged users from
 # planting a symlink at the lock path used by this root helper.
 lock_dir=/run/remote-desktops-recovery-${desktop_uid}
@@ -86,6 +109,8 @@ set -eu
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 [ "\$#" -eq 0 ] || exit 2
+$guard_definition
+telynd_secure_directories /usr/local/libexec /etc/systemd/system /etc/sudoers.d /var/lib/telynd /run/remote-desktops-recovery-${desktop_uid} || { echo 'Unsafe recovery directory ancestry. Administrator review required.'; exit 5; }
 ledger='$ledger'
 paths=('$helper' '$status' '/etc/systemd/system/$name.service' '/etc/systemd/system/$name.timer' '/etc/sudoers.d/$name')
 fail() { echo 'TELYND:installation=partial'; exit 1; }
@@ -108,7 +133,9 @@ printf 'TELYND:service=%s\n' "\$(systemctl show '$unit' -p ActiveState --value)"
 EOF
 # The empty argument strings are significant: sudoers permits no arguments.
 printf '%s ALL=(root) NOPASSWD: %s "", %s ""\n' "$desktop_user" "$helper" "$status" > "$work/sudoers"
-sudo /bin/bash -s -- "$work" "$helper" "$status" "$name" "$ledger" "$desktop_uid" <<'ROOT'
+{
+  declare -f telynd_secure_directories
+  cat <<'ROOT'
 set -eu
 PATH=/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
@@ -116,16 +143,11 @@ umask 077
 work=$1; helper=$2; status=$3; name=$4; ledger=$5; desktop_uid=$6
 paths=("$helper" "$status" "/etc/systemd/system/$name.service" "/etc/systemd/system/$name.timer" "/etc/sudoers.d/$name")
 fail() { echo "$*" >&2; exit 1; }
+telynd_secure_directories /usr/local/libexec /etc/systemd/system /etc/sudoers.d /var/lib/telynd "/run/$name" || fail 'Unsafe recovery directory ancestry. Nothing installed; administrator review required.'
 install -d -o root -g root -m 700 "/run/$name"
 exec 8>"/run/$name/setup.lock"
 flock -n 8 || fail 'Another recovery setup operation is running.'
-# Refuse unknown files and symlinked state. Never claim ownership of an old install.
-for directory in /usr/local/libexec /var/lib/telynd; do
-  [ ! -L "$directory" ] || fail "Unexpected symlink: $directory"
-  if [ -e "$directory" ]; then
-    [ "$(stat -c %u "$directory")" = 0 ] && [ -z "$(find "$directory" -maxdepth 0 -perm /022 -print)" ] || fail "Unsafe directory: $directory"
-  fi
-done
+# Refuse unknown files and symlinked state.
 if [ -e "$ledger" ] || [ -L "$ledger" ]; then
   [ ! -L "$ledger" ] && [ "$(stat -c '%u:%a' "$ledger")" = 0:700 ] || fail 'Unsafe installation record'
   [ -f "$ledger/marker" ] && [ ! -L "$ledger/marker" ] && [ "$(stat -c '%u:%a' "$ledger/marker")" = 0:600 ] && [ "$(cat "$ledger/marker")" = "telynd-v1:$desktop_uid" ] || fail 'Unrecognised installation record'
@@ -139,7 +161,7 @@ if [ -e "$ledger" ] || [ -L "$ledger" ]; then
       path=${paths[$i]}
       expected=$(grep -F "  $path" "$ledger/manifest") || fail 'Manifest path mismatch'
       if [ -e "$path" ] || [ -L "$path" ]; then
-                [ -f "$path" ] && [ ! -L "$path" ] || fail 'Unexpected installed file type'
+        [ -f "$path" ] && [ ! -L "$path" ] || fail 'Unexpected installed file type'
         actual=$(sha256sum "$path")
         incoming=$(sha256sum "$work/${sources[$i]}"); incoming=${incoming%% *}
         [ "$actual" = "$expected" ] || [ "${actual%% *}" = "$incoming" ] || fail 'Installed files differ. Review before replacing them.'
@@ -153,7 +175,9 @@ for path in "${paths[@]}"; do [ ! -L "$path" ] || fail "Unexpected symlink: $pat
 printf 'TELYND:phase=preflight\n'
 command -v visudo >/dev/null
 visudo -cf "$work/sudoers"
-install -d -o root -g root -m 755 /usr/local/libexec /var/lib/telynd
+for directory in /usr/local/libexec /var/lib/telynd; do
+  [ -d "$directory" ] || install -d -o root -g root -m 755 "$directory"
+done
 install -d -o root -g root -m 700 "$ledger"
 printf 'telynd-v1:%s\n' "$desktop_uid" > "$ledger/marker"
 chmod 600 "$ledger/marker"
@@ -180,5 +204,6 @@ printf 'installed\n' > "$ledger/result"
 "$status"
 printf 'TELYND:phase=complete\n'
 ROOT
+} | sudo /bin/bash -s -- "$work" "$helper" "$status" "$name" "$ledger" "$desktop_uid"
 echo 'Recovery installed and read back: the timer checks every two minutes.'
 echo 'Only an enabled, stopped or failed Chrome host is started. Google availability remains unknown.'

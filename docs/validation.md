@@ -6,8 +6,9 @@ users and does not establish usability timings or a live Google connection.
 
 ## Automated checks
 
-Local results: 14 Swift tests passed; Python discovers 15 tests (14 passed and
-one flock test skipped on macOS). Linux runs all 15 and the systemd integration.
+Local security-update results: 15 Swift tests passed; Python discovers 25 tests
+(24 passed and one flock test skipped on macOS). Linux runs all 25 and the
+systemd integration.
 
 - Swift core tests cover connection-only and legacy models, strict supported
   links, corrupt/future settings, duplicate identities, private atomic saves,
@@ -29,6 +30,19 @@ one flock test skipped on macOS). Linux runs all 15 and the systemd integration.
   unit and its PID survive removal. Its temporary broad administrator rule is
   test-fixture infrastructure and is removed before checking the product's
   narrow permissions; production installation never creates that rule.
+- SSH tests use real offline `ssh -G` resolution against deliberately unsafe
+  defaults. Both Swift readiness and shell actions override host trust,
+  forwarding, local commands and multiplexing. Authorisation fixtures verify
+  first-contact prompting and a subsequent strict fresh connection.
+- Release tests reject off-main commits, moved tag objects and insufficient
+  protection. Archive tests reject traversal, links, duplicate or extra files,
+  resource changes, preview metadata and excessive size. They use synthetic
+  binaries; separate Mac CI validates the real ad-hoc app archive and signature.
+- The real directory guards passed in a disposable Linux container without
+  host mounts or networking, covering writable/non-root-owned ancestors,
+  symlinks, missing directories and invalid path forms. Systemd integration
+  adds actual installer, readiness, helper and uninstaller refusal when
+  `/usr/local` becomes writable.
 
 The disposable Debian 13.4 ARM64 VM passed that integration script, including an
 interrupted upgrade with mixed old/new components and refusal of content drift, and all Linux
@@ -78,6 +92,17 @@ settings start the guide; completed fixtures exercise relaunch. Do not publish
 real Chrome profile data or screenshots containing personal host details.
 
 ## Review corrections
+
+The security review identified four additional issues: writable directory
+ancestors could permit replacement of a root-executed helper; initial
+`ssh-copy-id` could inherit disabled host checks; background SSH could inherit
+agent forwarding or reuse an existing connection; and arbitrary tagged release
+scripts could run in the signing environment. The fixes validate full Linux
+directory ancestry, impose explicit SSH policy, pin reviewed main-history
+source under protection checks and isolate builds from credentialed signing.
+The release job treats artifacts as data and executes only trusted workflow-main
+validation/signing scripts. GitHub protection configuration and Apple credentials
+remain prerequisites; the credentialed release path has not been executed.
 
 Self-review tightened SSH time/output bounds and rejects partial success
 protocols, clears observations when the target or key changes, blocks recovery

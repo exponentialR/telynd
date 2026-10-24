@@ -36,6 +36,10 @@ if [ "$name" = ssh ] && [[ "$*" == *mktemp* ]]; then echo /tmp/telynd-setup.1234
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('result=ssh_ready', receipt)
         self.assertIn('StrictHostKeyChecking=yes', actions)
+        copy = next(line for line in actions.splitlines() if line.startswith('ssh-copy-id '))
+        self.assertIn('StrictHostKeyChecking=ask', copy)
+        self.assertIn('ForwardAgent=no', copy)
+        self.assertIn('ControlPath=none', copy)
         self.assertNotIn('scp ', actions); self.assertNotIn('sudo', actions)
         self.assertEqual((root/'result').stat().st_mode & 0o777, 0o600)
 
