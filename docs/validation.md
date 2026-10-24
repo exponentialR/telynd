@@ -1,5 +1,32 @@
 # Onboarding validation record
 
+## Linux folder permissions before authorisation, 24 October 2026
+
+The live setup report exposed an account home with mode 0772. A key already
+present in `authorized_keys` was rejected even though password login worked.
+Helper 0.2.1 now checks the account home and existing SSH paths before allowing
+setup-card copy/save. It explains writable permissions and offers an explicit
+repair confirmation, including the impact on shared users. The repair removes
+only group/other write bits using open descriptors; it is not recursive and
+never adds access. Foreign ownership, symlinks, hard links, special files and
+unreadable paths require administrator review. An active SSH service is shown
+as **SSH is running**, instead of an enabled Enable SSH button.
+
+The remote authorisation script independently refuses unsafe home ownership
+or write permissions before any key-file changes. Its dedicated result sends
+the Mac user back to Linux setup. A failed password-free verification also
+explains the diagnostic route instead of repeating generic approval guidance.
+No SSH server security checks are disabled. Existing Linux helpers require an
+explicit package update; a Mac update alone cannot replace them.
+
+All 77 Swift tests passed. The full local Python suite ran 59 tests without
+failures, with three expected platform/display skips. Added tests cover the
+0772 to 0750 repair, preserved contents and unrelated file permissions, unsafe
+path/ownership refusal, and the dedicated authorisation result. Linux CI also
+runs the Tk cancellation/repair/readiness journey under Xvfb and refuses a
+writable disposable account home before authorisation writes. These tests do
+not establish a successful repair or SSH login on a user's real PC.
+
 ## Permanent deletion of removed entries, 24 October 2026
 
 Removed computer entries have no automatic expiry. **Help → Recently removed
