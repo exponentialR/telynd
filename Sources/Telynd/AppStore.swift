@@ -371,15 +371,22 @@ import CryptoKit
         } catch { self.error = "Kit export did not complete: \(error.localizedDescription). Review the destination before retrying." }
     }
     func copyLinuxSetupDownloadLink() -> Bool {
+        copyLinuxSetupDownload(terminalCommand: false)
+    }
+    func copyLinuxSetupInstallCommand() -> Bool {
+        copyLinuxSetupDownload(terminalCommand: true)
+    }
+    private func copyLinuxSetupDownload(terminalCommand: Bool) -> Bool {
         do {
             let data = try Data(contentsOf: resources.appendingPathComponent(LinuxSetupDownload.filename))
-            guard let url = LinuxSetupDownload.verifiedURL(for: data) else {
+            let text = terminalCommand ? LinuxSetupDownload.verifiedInstallCommand(for: data) : LinuxSetupDownload.verifiedURL(for: data)?.absoluteString
+            guard let text else {
                 error = "The download link does not match this build’s installer. Use the file-transfer alternative or update Telynd."
                 return false
             }
             NSPasteboard.general.clearContents()
-            guard NSPasteboard.general.setString(url.absoluteString, forType: .string) else {
-                error = "The download link could not be copied. Try again."
+            guard NSPasteboard.general.setString(text, forType: .string) else {
+                error = "The setup instructions could not be copied. Try again."
                 return false
             }
             return true

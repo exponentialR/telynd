@@ -14,4 +14,19 @@ public enum LinuxSetupDownload {
         let actual = SHA256.hash(data: bundledHelper).map { String(format: "%02x", $0) }.joined()
         return actual == digest ? url : nil
     }
+    /// A separate clipboard action for a Linux terminal, with checksum verification
+    /// before apt runs. The subshell keeps its directory and error mode local.
+    public static func verifiedInstallCommand(for bundledHelper: Data) -> String? {
+        guard let url = verifiedURL(for: bundledHelper) else { return nil }
+        return """
+        (
+          set -e
+          cd "$(mktemp -d)"
+          wget --https-only -O '\(filename)' '\(url.absoluteString)'
+          printf '%s\\n' '\(digest)  \(filename)' | sha256sum --check -
+          sudo apt install './\(filename)'
+          telynd-setup
+        )
+        """
+    }
 }

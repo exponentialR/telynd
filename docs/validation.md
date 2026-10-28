@@ -1,5 +1,32 @@
 # Onboarding validation record
 
+## Linux installation instructions and release review, 28 October 2026
+
+The existing helper 0.2.2 URL was downloaded again over HTTPS. Its SHA256 was
+`6264d354f2cdb6f94bf38abcf59b530251118ed86199e74b6c2f1186463b179c`,
+matching both the bundle and the immutable source pin. The reported Bash error
+came from entering the URL as a command; replacing the valid pin would not
+correct that failure. The app now labels its browser-link action explicitly
+and offers a separate Terminal install command that verifies the download
+before administrator installation. Tests run that command with isolated
+download and administrator adapters, covering success, download failure and
+corrupt content without contacting Linux or running real sudo.
+
+Review found the SSH terminal resources were missing from the release archive
+allow-list. The previous macOS CI job failed with an unexpected
+`SwiftTerm-LICENSE.txt` member after its build passed. The licence and Metal
+shader now have committed reference copies matching SwiftTerm 1.20.0; builds
+compare their resolved resources against those copies, and archive validation
+checks their bytes against the reviewed source. Tampered resources remain
+rejected, alongside the existing archive-path and metadata guards.
+
+Local validation passed 86 Swift tests and the Python suite (59 run, three
+platform/display skips). Shell syntax and whitespace checks passed. The app
+version is now 0.3.0, build 3. A separate preview packager validates the actual
+app archive without Apple credentials and prepares source metadata, checksums
+and installation guidance. Publication still requires final-source CI and a
+browser-download check; Developer ID signing and notarisation remain separate.
+
 ## Embedded SSH terminal, 28 October 2026
 
 Computer rows now offer **Start SSH**, with **SSH settings…** in the options

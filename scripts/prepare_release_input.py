@@ -15,6 +15,8 @@ RESOURCES = {
     **{name: f'assets/branding/{name}' for name in ['Telynd.icns', 'telynd-logo-v2.png', 'telynd-logo-dark.png']},
     'chrome-setup.html': 'assets/chrome-setup.html',
     'telynd-setup_0.2.2_all.deb': 'assets/telynd-setup_0.2.2_all.deb',
+    'SwiftTerm-LICENSE.txt': 'assets/third-party/SwiftTerm/LICENSE',
+    'SwiftTerm_SwiftTerm.bundle/Shaders.metal': 'assets/third-party/SwiftTerm/Shaders.metal',
 }
 PREFIX = 'Telynd.app/Contents/'
 FILES = {PREFIX + 'Info.plist', PREFIX + 'MacOS/Telynd', PREFIX + '_CodeSignature/CodeResources'} | {PREFIX + 'Resources/' + name for name in RESOURCES}

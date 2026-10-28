@@ -8,7 +8,7 @@ supplies the connection details, and the Mac checks for a matching route.
 
 1. **On this Mac:** add the computer through Google's picker and choose
    **Linux → Save & set up recovery…**, or open **Recovery settings…** later. Choose
-   **Copy Linux download link**, then **Open remote desktop**. SSH is not
+   **Copy browser download link**, then **Open remote desktop**. SSH is not
    required for these steps: Google's working connection is the initial route.
 2. **Inside the Linux remote desktop:** open a web browser on that PC, paste the
    copied link into its address bar and press Enter. The installer downloads
@@ -16,6 +16,12 @@ supplies the connection details, and the Mac checks for a matching route.
    **Install** in the graphical software installer and approve installation.
    Find **Telynd Setup** in that PC's applications and open it. Package
    installation adds the helper and dependencies; it does not itself enable SSH.
+   For Terminal installation, expand **Install using Terminal instead** and
+   choose **Copy Terminal install command**. Paste that command into Terminal
+   inside the Linux desktop. It downloads the same pinned helper, checks its
+   SHA256 before asking apt to install it, then opens Telynd Setup. The browser
+   link is a URL, not a shell command. A failed download or checksum stops the
+   command before administrator access. This route requires `wget` and `sha256sum`.
 3. **Still on Linux:** the helper checks the home folder and existing SSH paths
    for unsafe ownership, links and write permissions before allowing a setup
    card. If it offers **Fix folder permissions…**, review and approve the repair.

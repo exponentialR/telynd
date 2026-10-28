@@ -104,8 +104,10 @@ progress continues independently.
 
 For Linux recovery, follow the [guided pairing steps](pairing.md). The desktop
 helper currently supports Ubuntu/Debian with a graphical desktop and IPv4.
-Copy its download link, open a browser inside the Linux remote desktop and
-download/install it there. Existing SSH is not needed. It can enable SSH after
+Choose **Copy browser download link**, open a browser inside the Linux remote desktop and
+download/install it there. For a Linux Terminal, choose **Install using Terminal
+instead → Copy Terminal install command**; a bare URL cannot run as a shell command.
+Existing SSH is not needed. It can enable SSH after
 local administrator approval. You bring its setup card
 back to this Mac, confirm the PC and choose **Check this computer**. Telynd tests
 only the card's listed addresses and compares public host keys; it does not

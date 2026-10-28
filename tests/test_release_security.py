@@ -133,12 +133,14 @@ class ArtifactTest(unittest.TestCase):
                 self.assertFalse((root/'validated').exists());self.assertFalse((root.parent/'escaped').exists())
 
     def test_tampered_script_wrong_version_and_fixture_metadata_are_rejected(self):
-        for kind in ['script','setup_page','linux_helper','version','fixture','automation_missing','automation_changed']:
+        for kind in ['script','setup_page','linux_helper','terminal_shader','terminal_licence','version','fixture','automation_missing','automation_changed']:
             with self.subTest(kind=kind),repository() as (root,git):
                 files,revision=self.fixture(root,git)
                 if kind=='script': files[ARTIFACT.PREFIX+'Resources/setup-remote.sh']=b'tampered'
                 elif kind=='setup_page': files[ARTIFACT.PREFIX+'Resources/chrome-setup.html']=b'<script>tampered</script>'
                 elif kind=='linux_helper': files[ARTIFACT.PREFIX+'Resources/telynd-setup_0.2.2_all.deb']=b'tampered'
+                elif kind=='terminal_shader': files[ARTIFACT.PREFIX+'Resources/SwiftTerm_SwiftTerm.bundle/Shaders.metal']=b'tampered'
+                elif kind=='terminal_licence': files[ARTIFACT.PREFIX+'Resources/SwiftTerm-LICENSE.txt']=b'tampered'
                 else:
                     info=plistlib.loads(files[ARTIFACT.PREFIX+'Info.plist'])
                     if kind=='version': info['CFBundleShortVersionString']='9.9.9'
