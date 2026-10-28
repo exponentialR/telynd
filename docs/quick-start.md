@@ -70,6 +70,27 @@ recovery** and **Recovery settings…**. Details contain service checks and laun
 history; they do not establish that Google can connect. **Setup guide** is in
 the toolbar's help menu. You can close setup and resume its saved progress.
 
+## Open an SSH terminal
+
+Choose **Start SSH** on a computer’s row. Telynd opens a native terminal window
+using that computer’s saved SSH address and private key. If no address is saved,
+enter the username, hostname or IP address and key path first. Use **… → SSH
+settings…** to edit them later. SSH settings also supply the Linux recovery route.
+
+SSH must already be enabled and reachable on the remote computer. A Chrome
+connection or recovery installation is not required. Password, key-passphrase
+and first-use host-trust prompts appear in the embedded terminal. Compare a new
+host fingerprint with a trusted record before accepting it. Custom ports can be
+configured for the hostname in `~/.ssh/config`; the address field accepts a
+hostname or IPv4 address without a port.
+
+The terminal supports normal keyboard input, selection, Copy and Paste,
+scrollback and resizing. **Disconnect** ends the SSH connection; **Reconnect**
+starts another. Clicking **Start SSH** again brings the existing terminal forward.
+Closing its window disconnects SSH. Quitting Telynd ends its SSH sessions. Terminal
+output remains in memory and is not saved as a transcript. Recovery approval and
+installation continue to use macOS Terminal.
+
 To remove an entry, choose **… → Remove from Telynd…**. The confirmation explains
 that Google registration, SSH keys and host recovery remain in place. Use
 **Undo** immediately, or **Help → Recently removed computers… → Restore** later,

@@ -5,8 +5,15 @@ Recovery supports a reachable Linux account with systemd and an existing
 approval during installation. Bash, sudo, install, flock, stat, sha256sum,
 visudo and systemctl must be available at the expected system locations.
 An existing Tailscale route can be used; Tailscale is not required. The editor
-accepts `user@hostname` and `user@IPv4`. Custom SSH ports and IPv6 literals are
-not yet supported.
+accepts `user@hostname` and `user@IPv4`. Explicit ports and IPv6 literals are
+not supported in the address field; custom ports can be set for a hostname in
+`~/.ssh/config`.
+
+For a normal interactive login, choose **Start SSH** on the computer’s row.
+The terminal opens inside Telynd and uses its saved target and key. **… → SSH
+settings…** edits these details independently of recovery or Chrome. See
+[the terminal guide](quick-start.md#open-an-ssh-terminal). Recovery installation
+and authorisation still open macOS Terminal for their separate approvals.
 
 ## Set up access
 
@@ -37,7 +44,7 @@ it is locked until current access and installation requirements pass:
    installation. Already-enabled recovery is shown without repeating setup.
 
 **Check access** skips authorisation and performs a bounded read-only
-check. Key selection, an interactive SSH Terminal, detailed status, manual
+check. Key selection, **Start SSH**, detailed status, manual
 recovery, disabling and uninstalling are under **Advanced settings & diagnostics**.
 Editing the target or key makes the old verification inapplicable until checked.
 

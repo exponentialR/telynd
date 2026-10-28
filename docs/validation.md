@@ -1,5 +1,27 @@
 # Onboarding validation record
 
+## Embedded SSH terminal, 28 October 2026
+
+Computer rows now offer **Start SSH**, with **SSH settings…** in the options
+menu. Existing saved addresses and keys are reused. Missing SSH details open a
+settings sheet independently of Chrome accounts and recovery configuration.
+Interactive OpenSSH runs in a native SwiftTerm terminal within Telynd, with
+host-trust and authentication prompts, disconnect, reconnect and window-close
+cleanup. Automated recovery keeps its existing strict, non-interactive policy.
+
+All 85 Swift tests passed. New tests exercise actual local pseudo-terminals for
+input, ANSI output, terminal resizing, exit status, disconnect, reconnect and
+child reaping after window closure. Launch-boundary tests reject stale, removed,
+locked and synthetic hosts. No SSH server is contacted by these tests. The 59
+Python tests passed with three platform/display skips, and shell syntax checks
+passed. The release build and ad-hoc bundle signature passed, including bundled
+SwiftTerm resources and its licence.
+
+The updated app was installed locally and reopened. Native UI checks confirmed
+the row action and SSH settings sheet with existing saved details; settings
+inspection was cancelled without saving. Live remote login, password and
+host-trust prompts, and full-screen remote terminal programs remain untested.
+
 ## Session windows and embedded-viewer feasibility, 24 October 2026
 
 Connect now requests a separate Chrome application-mode window with the saved
