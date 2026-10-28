@@ -6,7 +6,8 @@
 </picture>
 
 A native macOS app that keeps your remote computers in one place. Choose your
-browser account for each computer and open Google Chrome Remote Desktop. SSH and
+browser account for each computer and open Google Chrome Remote Desktop. Start SSH
+opens an interactive terminal inside Telynd using the computer’s saved SSH details. SSH and
 platform-specific service recovery are optional.
 
 Google provides the remote screen connection and handles sign-in and its PIN.
@@ -40,7 +41,7 @@ under the [MIT licence](LICENSE).
 
 ## Build a developer app
 
-On an Apple silicon Mac with the Swift toolchain:
+On an Apple silicon Mac with a Swift 6.0 or later toolchain:
 
 ```sh
 git clone https://github.com/exponentialR/telynd.git
@@ -61,7 +62,7 @@ Linux SSH access and recovery. Mac/Windows kits run locally on their hosts. Tail
 
 | Path | Responsibility |
 | --- | --- |
-| `Sources/Telynd/` | SwiftUI guide, searchable computer rows, per-computer accounts and Terminal hand-off |
+| `Sources/Telynd/` | SwiftUI guide, searchable computer rows, per-computer accounts, embedded SSH terminals and recovery hand-off |
 | `Sources/TelyndCore/` | Models, private persistence, profile metadata, readiness and bounded process execution |
 | `linux-helper/` | Ubuntu/Debian desktop pairing helper and fixed administrator-approved SSH preparation |
 | `scripts/build_linux_helper.py` | Builds the bundled Debian package from reviewable sources |
@@ -76,6 +77,10 @@ Linux SSH access and recovery. Mac/Windows kits run locally on their hosts. Tail
 | `tests/` | Swift core tests, platform fixtures and disposable Linux/launchd/SCM integration |
 | `build.sh` | Build and assemble a locally signed ARM64 app |
 | `scripts/release-macos.sh` | Credential-gated signing, notarisation and versioned release assets |
+
+The embedded terminal uses [SwiftTerm](https://github.com/migueldeicaza/SwiftTerm),
+pinned through Swift Package Manager. Builds bundle its resources and MIT licence.
+OpenSSH supplies SSH transport and authentication; no terminal transcript is saved.
 
 ## Local data and security boundaries
 

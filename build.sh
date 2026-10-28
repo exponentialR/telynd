@@ -23,6 +23,10 @@ case "$configuration" in release|debug) ;; *) echo 'Unknown build configuration'
 swift build -c "$configuration" --arch arm64
 binary_dir=$(swift build -c "$configuration" --arch arm64 --show-bin-path)
 cp "$binary_dir/Telynd" "$app/Contents/MacOS/Telynd"
+cp -R "$binary_dir/SwiftTerm_SwiftTerm.bundle" "$app/Contents/Resources/"
+cmp .build/checkouts/SwiftTerm/LICENSE assets/third-party/SwiftTerm/LICENSE
+cmp "$binary_dir/SwiftTerm_SwiftTerm.bundle/Shaders.metal" assets/third-party/SwiftTerm/Shaders.metal
+cp assets/third-party/SwiftTerm/LICENSE "$app/Contents/Resources/SwiftTerm-LICENSE.txt"
 cp scripts/macos-recovery.sh scripts/windows-recovery.ps1 scripts/WindowsServicePolicy.cs scripts/authorise-remote.sh scripts/ssh-policy.sh scripts/remote-check.sh scripts/setup-remote.sh scripts/uninstall-remote.sh scripts/launch-host.command scripts/setup-mac.command "$app/Contents/Resources/"
 cp assets/branding/Telynd.icns "$app/Contents/Resources/"
 cp assets/branding/telynd-logo-v2.png assets/branding/telynd-logo-dark.png "$app/Contents/Resources/"
@@ -39,8 +43,8 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
 <key>CFBundleDisplayName</key><string>Telynd</string>
 <key>CFBundleIconFile</key><string>Telynd</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleShortVersionString</key><string>0.2.0</string>
-<key>CFBundleVersion</key><string>2</string>
+<key>CFBundleShortVersionString</key><string>0.3.0</string>
+<key>CFBundleVersion</key><string>3</string>
 <key>NSHumanReadableCopyright</key><string>Copyright © 2026 Samuel Adebayo. MIT licence.</string>
 <key>LSMinimumSystemVersion</key><string>13.0</string>
 <key>NSHighResolutionCapable</key><true/>

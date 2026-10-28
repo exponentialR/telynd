@@ -13,6 +13,7 @@ struct PairingSetupView: View {
     @State private var request: UUID?
     @State private var control: PairingProbeControl?
     @State private var downloadCopied = false
+    @State private var installCommandCopied = false
     @State private var showingImport = false
 
     private func cancel() { control?.cancel(); control = nil; request = nil; checking = false }
@@ -51,19 +52,27 @@ struct PairingSetupView: View {
         VStack(alignment: .leading, spacing: 14) {
             if !showingImport {
                 Label("On this Mac", systemImage: "laptopcomputer").font(.headline)
-                Text("Copy the download link, then open this computer’s Google remote desktop. No existing SSH connection is needed.").font(.callout).foregroundStyle(.secondary)
+                Text("Open this computer’s Google remote desktop, then choose browser download or Terminal installation below. No existing SSH connection is needed.").font(.callout).foregroundStyle(.secondary)
                 HStack {
-                    Button("Copy Linux download link") { downloadCopied = store.copyLinuxSetupDownloadLink() }
+                    Button("Copy browser download link") { downloadCopied = store.copyLinuxSetupDownloadLink(); installCommandCopied = false }
                     Button("Open remote desktop") { store.connect(desktop) }
                         .disabled(!desktop.hasDirectConnection || !store.profileReady(for: desktop))
                 }
                 if downloadCopied {
-                    Label("Link copied. Paste it into a browser inside the Linux remote desktop.", systemImage: "checkmark.circle").font(.caption).foregroundStyle(.secondary)
+                    Label("Link copied. Paste it into the Linux browser’s address bar. This link is not a Terminal command.", systemImage: "checkmark.circle").font(.caption).foregroundStyle(.secondary)
                 }
                 Divider()
                 Label("Inside the Linux remote desktop", systemImage: "desktopcomputer").font(.headline)
                 Text("Open a browser inside the remote desktop. Paste the link into its address bar and press Enter to download the Linux installer.").font(.callout).foregroundStyle(.secondary)
                 Text("Open the installer from that browser’s Downloads list. Choose Install and approve the prompt. Then open Telynd Setup from that PC’s applications.").font(.callout).foregroundStyle(.secondary)
+                DisclosureGroup("Install using Terminal instead") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("Copy the install command and paste it into Terminal inside the Linux desktop. It downloads the pinned installer, verifies its checksum, asks for administrator approval to install it and opens Telynd Setup.")
+                        Button("Copy Terminal install command") { installCommandCopied = store.copyLinuxSetupInstallCommand(); downloadCopied = false }
+                        if installCommandCopied { Label("Install command copied. Paste it into the Linux Terminal and press Enter.", systemImage: "checkmark.circle") }
+                        Text("A bare https:// link cannot run in Terminal. Use the browser link in a browser, or the install command here in Terminal.")
+                    }.font(.callout).foregroundStyle(.secondary).padding(.top, 8)
+                }
                 Text("In the helper, choose Enable SSH if offered and approve it. Then choose Copy setup card: the helper collects the login name and addresses for you.").font(.callout).foregroundStyle(.secondary)
                 Text("Ubuntu/Debian preview from Telynd’s public GitHub repository. Keep the helper open until you paste its card on this Mac.").font(.caption).foregroundStyle(.secondary)
                 Button("Continue to paste setup card") { showingImport = true }.buttonStyle(ConnectButton())

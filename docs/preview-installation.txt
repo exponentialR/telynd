@@ -1,0 +1,47 @@
+Telynd developer preview — READ ME FIRST
+
+This preview is for Apple silicon Macs (M1 or newer). It is ad-hoc signed,
+without an Apple Developer ID or Apple notarisation. Runtime validation covers
+macOS 26. The build minimum is macOS 13; earlier systems remain untested.
+The package does not support Intel Macs. BUILD_INFO.txt records the version
+and exact source revision of this download.
+
+INSTALL OR UPDATE
+Download only from https://github.com/exponentialR/telynd/releases and extract
+the ZIP. Quit Telynd and drag Telynd.app into Applications, replacing the old
+app. Saved computers and settings are stored separately and are preserved.
+You do not need Xcode, Swift or Python on the Mac.
+
+Open normally. If macOS blocks this developer preview and you trust the
+official download, use the app-specific Open Anyway option in System Settings
+> Privacy & Security. Complete any Mac login prompt yourself. Do not disable
+Gatekeeper or remove quarantine metadata. Stop if macOS reports malware or a
+damaged app. Managed Macs may require their administrator's approval.
+Apple's opening instructions: https://support.apple.com/en-au/102445
+
+CONNECT
+Connect opens Google Chrome Remote Desktop with the computer's saved browser
+profile. Google handles sign-in and the connection PIN.
+
+Start SSH opens an interactive terminal within Telynd. Use SSH settings in the
+computer's options menu to edit its login, hostname and private-key path.
+SSH must already be enabled and reachable. Compare any new host fingerprint
+with a trusted record before accepting it. Disconnect or close the terminal
+window to end its SSH session; Reconnect starts another.
+
+LINUX SETUP
+Recovery settings offers two separate clipboard actions. Copy browser download
+link is for the address bar of a browser inside the Linux desktop. Copy Terminal
+install command is for a Terminal inside that desktop: it downloads the pinned
+helper, verifies SHA256, asks for administrator approval and opens Telynd Setup.
+A bare https:// link cannot run as a shell command.
+
+The Ubuntu/Debian helper and recovery setup are optional. Enabling SSH,
+authorising a key and installing automatic recovery remain separate actions.
+Recovery cannot wake a PC or repair network faults or expired Google sign-in.
+Mac and Windows recovery kits remain experimental.
+
+For removal, quit Telynd and move the app to Trash. Remote recovery components
+and SSH authorisation have separate explicit removal actions.
+Source and feedback: https://github.com/exponentialR/telynd
+Keep passwords, private keys and private host details out of public reports.

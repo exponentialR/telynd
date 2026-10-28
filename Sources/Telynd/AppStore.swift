@@ -14,6 +14,8 @@ import CryptoKit
     var observations: [UUID: HostObservation] { hostChecks.observations }
     @Published var operationNotes: [UUID: String] = [:]
     @Published var recoveryDesktop: Desktop?
+    @Published var sshSettingsDesktop: Desktop?
+    private let sshTerminals = SSHTerminalWindows()
     @Published var writeLocked = false
     @Published private(set) var readingChromeConnection = false
     @Published private(set) var lastRemovedID: UUID?
@@ -100,6 +102,7 @@ import CryptoKit
         desktops.removeAll { $0.id == desktopID }
         hostChecks.invalidate(desktopID); operationNotes[desktopID] = nil
         if recoveryDesktop?.id == desktopID { recoveryDesktop = nil }
+        if sshSettingsDesktop?.id == desktopID { sshSettingsDesktop = nil }
         lastRemovedID = desktopID
         do { try configuration.saveDesktops(desktops) }
         catch { self.error = "The computer was removed and can be restored. The active-list file could not be cleaned; the saved removal will still hide it after reopening Telynd." }
@@ -185,6 +188,16 @@ import CryptoKit
         let available = profiles.filter(\.signedIn)
         if available.count == 1 { desktop.chromeProfile = available[0].reference }
         return desktop
+    }
+    func startSSH(_ desktop: Desktop) {
+        guard !writeLocked else { error = ConfigurationError.writeLocked.localizedDescription; return }
+        guard let saved = desktops.first(where: { $0.id == desktop.id }) else { error = "Restore this computer before starting SSH."; return }
+        guard saved.target == desktop.target, saved.identityPath == desktop.identityPath else { error = "SSH settings changed. Try Start SSH again from the computer’s current row."; return }
+        guard InputValidation.target(saved.target) else { sshSettingsDesktop = saved; return }
+        let identity = saved.identityPath ?? defaultIdentity
+        guard InputValidation.identityPath(identity) else { error = "Choose an absolute SSH private-key path in SSH settings."; return }
+        guard !fixtureMode else { error = "Preview data cannot contact SSH hosts."; return }
+        sshTerminals.open(saved, identity: identity)
     }
     func profileReady(for desktop: Desktop) -> Bool { (try? ChromeProfiles.selected(in: profiles, reference: desktop.chromeProfile)) != nil }
     func captureChromeConnection(_ completion: @escaping (Result<String, Error>) -> Void) {
@@ -358,15 +371,22 @@ import CryptoKit
         } catch { self.error = "Kit export did not complete: \(error.localizedDescription). Review the destination before retrying." }
     }
     func copyLinuxSetupDownloadLink() -> Bool {
+        copyLinuxSetupDownload(terminalCommand: false)
+    }
+    func copyLinuxSetupInstallCommand() -> Bool {
+        copyLinuxSetupDownload(terminalCommand: true)
+    }
+    private func copyLinuxSetupDownload(terminalCommand: Bool) -> Bool {
         do {
             let data = try Data(contentsOf: resources.appendingPathComponent(LinuxSetupDownload.filename))
-            guard let url = LinuxSetupDownload.verifiedURL(for: data) else {
+            let text = terminalCommand ? LinuxSetupDownload.verifiedInstallCommand(for: data) : LinuxSetupDownload.verifiedURL(for: data)?.absoluteString
+            guard let text else {
                 error = "The download link does not match this build’s installer. Use the file-transfer alternative or update Telynd."
                 return false
             }
             NSPasteboard.general.clearContents()
-            guard NSPasteboard.general.setString(url.absoluteString, forType: .string) else {
-                error = "The download link could not be copied. Try again."
+            guard NSPasteboard.general.setString(text, forType: .string) else {
+                error = "The setup instructions could not be copied. Try again."
                 return false
             }
             return true

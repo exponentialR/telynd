@@ -90,7 +90,7 @@ struct ContentView: View {
                             ForEach(filtered) { item in DesktopRow(desktop: item) { editing = item } }
                         }
                     }
-                    Text("Connections open in separate Chrome windows using each computer’s saved account.")
+                    Text("Desktop connections open in Chrome. SSH terminals open inside Telynd.")
                         .font(.caption).foregroundStyle(.secondary)
                 }.padding(24).frame(maxWidth: 960, alignment: .leading).frame(maxWidth: .infinity)
             }
@@ -101,6 +101,7 @@ struct ContentView: View {
             .sheet(isPresented: $showingRemoved) { RemovedComputersSheet() }
             .sheet(isPresented: $store.showGuide) { OnboardingGuide() }
             .sheet(item: $store.recoveryDesktop) { RecoverySheet(desktop: $0) }
+            .sheet(item: $store.sshSettingsDesktop) { SSHSettingsSheet(desktop: $0) }
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in store.refreshProfiles(); store.refreshOperationNotes() }
             .alert("Telynd", isPresented: Binding(get: { store.error != nil }, set: { if !$0 { store.error = nil } })) { Button("OK") { store.error = nil } } message: { Text(store.error ?? "") }
     }
@@ -179,6 +180,9 @@ struct DesktopRow: View {
                         .font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                 }
                 Spacer(minLength: 12)
+                Button { store.startSSH(desktop) } label: { Label("Start SSH", systemImage: "terminal") }
+                    .disabled(store.writeLocked).accessibilityLabel("Start SSH for \(desktop.name)")
+                    .help("Open an SSH terminal inside Telynd.")
                 Button { if desktop.hasDirectConnection && store.profileReady(for: desktop) { store.connect(desktop) } else { edit() } } label: {
                     Text(action).frame(minWidth: 64)
                 }.buttonStyle(ConnectButton()).disabled(store.writeLocked)
@@ -186,6 +190,7 @@ struct DesktopRow: View {
                     .help("Open a separate Chrome session window using this computer’s saved account.")
                 Menu {
                     Button("Edit computer…", action: edit).disabled(store.writeLocked)
+                    Button("SSH settings…") { store.sshSettingsDesktop = desktop }.disabled(store.writeLocked)
                     Button("Open in Chrome tab") { store.connect(desktop, presentation: .tab) }
                         .disabled(store.writeLocked || !desktop.hasDirectConnection || !store.profileReady(for: desktop))
                     Button(detailsExpanded ? "Hide details" : "Details & recovery") { detailsExpanded.toggle() }
@@ -795,7 +800,7 @@ struct RecoverySheet: View {
                         TextField("SSH private key path", text: $identity)
                         Button("Choose key…") { let panel = NSOpenPanel(); panel.canChooseDirectories = false; panel.showsHiddenFiles = true; if panel.runModal() == .OK, let url = panel.url { identity = url.path } }
                     }
-                    Button("SSH Terminal") { if saveDetails() { _ = store.terminal(current, action: "connect") } }.disabled(!valid || waitingAction != nil)
+                    Button("Start SSH") { if saveDetails() { store.startSSH(current) } }.disabled(!valid || waitingAction != nil)
                     if detailsSaved {
                         StatusDetails(observation: observed, now: now, platform: current.hostPlatform)
                         if let note = store.operationNotes[desktop.id] { Text("Last setup result: " + note).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }

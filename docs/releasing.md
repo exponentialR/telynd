@@ -1,5 +1,37 @@
 # macOS release preparation
 
+## 0.3.0 developer preview preparation
+
+The 0.3.0 app adds embedded SSH terminals and distinguishes browser download
+links from Linux Terminal install commands. The installer remains helper 0.2.2;
+its existing immutable URL was downloaded again and matched the bundled SHA256.
+The terminal command verifies that digest before administrator installation.
+
+After reviewing and committing the source, prepare the explicit ad-hoc preview:
+
+```sh
+swift test
+python3 -m unittest discover -s tests -v
+bash scripts/package-preview.sh v0.3.0-preview.1
+```
+
+The packager requires a clean checkout, checks the app version, builds without
+Apple credentials and validates the actual ZIP contents and signature against
+the committed source. It includes installation guidance, version and source
+metadata, release notes and SHA256 checksums in `dist/v0.3.0-preview.1/`.
+It refuses to overwrite an existing package and does not create a tag, upload
+assets or publish a release. Create a new immutable preview tag on the reviewed,
+merged commit, upload a draft, and complete the browser-download check below
+before publishing. Do not replace the existing 0.2.0 preview assets in place.
+
+SwiftTerm's licence and Metal shader are committed as release reference data
+under `assets/third-party/SwiftTerm/`. The build checks its resolved dependency
+against those copies. Artifact validation includes only these specific files
+and compares them to the reviewed source, preserving the existing archive and
+signing boundaries. The Developer ID pipeline below remains a separate path.
+
+## Published preview and signing status
+
 Status on 24 October 2026: the maintainer does not yet have an available Apple
 Developer signing identity. No signing secrets are configured, and **no public
 binary has been signed with Developer ID or notarised by Apple**. The maintainer approved a
